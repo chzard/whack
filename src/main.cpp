@@ -27,6 +27,9 @@
 ********************************************************************************************/
 
 #include "../include/raylib.h"
+#include <algorithm>
+#include <format>
+using namespace std;
 
 //DEFINES
 
@@ -35,30 +38,59 @@
 //CONSTANTS
 const int SCREEN_WIDTH = 800;
 const int SCREEN_HEIGHT = 600;
+
 const int GRID_WIDTH = 600;
 const int GRID_HEIGHT = 300;
+const int PLANE_LINE_SPACE = 10;
 const int SQUARE_SIZE = 100;
+
 const int GRID_MARGIN_LEFT = 100;
 const int GRID_MARGIN_RIGHT = 100;
 const int GRID_MARGIN_TOP = 200;
 const int GRID_MARGIN_BOTTOM = 100;
 
+const int SQUARESX = GRID_WIDTH / SQUARE_SIZE;  // Num of squares per row
+const int SQUARESY = GRID_HEIGHT / SQUARE_SIZE; // Num of squares per column
+
+const int LIT_LIMIT = 5;                        // Max amount of lit squares at any frame
+const int SPAWN_MAX = 3;                        // Max amount of squares that can spawn after cooldown
+const int LIT_TIME = 150;                       // Frames = 150 = 2.5 seconds 
+const int COOLDOWN = 180;                       // Frames = 180 = 3 seconds
+const int SPAWN_COOLDOWN = 45;                  // Frames = 60 = 0.75 seconds
+
+const Color PLANE_LINES_COLOR = ColorFromHSV(220, 0.1, 0.6);
+const Color GRID_LINES_COLOR = ColorFromHSV(260, 0.58, 0.25);
+const Color SQUARE_COLOR = ColorFromHSV(124, 0.63, 0.41);
+const Color LIVES_COLOR = ColorFromHSV(359, 0.75, 0.8);
+
 //GLOBAL
+
+int lives = 5;
+int score = 0;
 bool gameOver = false;
 
-int framesLitTime[3][6];
-bool framesLit[3][6];
+int framesLitTime[SQUARESY][SQUARESX];          // Stores by row x column
+bool framesLit[SQUARESY][SQUARESX];             // Stores by row x column
+int framesCooldown[SQUARESY][SQUARESX];        // Stores by row x column
+int framesLitNum = 0;
+int squaresSpawnCooldown = 0;
 
 Vector2 mousePos = {0,0};
 
-//debug
-
 //FUNCTIONS
+
 void initGameScreen(void);
 void updateGame(void);
+void drawPlane(void);
 void drawGrid(void);
+void drawLives(void);
+void drawSquares(void);
 void drawGameScreen(void);
+void drawEndScreen(void);
 void updateFrame(void);
+void displayStats(void);
+void spawnSquare(void);
+void resetSquare(int x, int y);
 
 //------------------------------------------------------------------------------------
 // Program main entry point
@@ -104,17 +136,20 @@ int main(void)
 
 void initGameScreen(void) {
 
-    for (int i=0; i<3; i++) {
-        for (int j=0; j<6; j++) {
-            framesLitTime[i][j] = 0;
-            framesLit[i][j] = false;
+    for (int i=0; i<SQUARESY; i++) {
+        for (int j=0; j<SQUARESX; j++) {
+            framesLitTime[i][j]=0;
+            framesCooldown[i][j]=0;
+            framesLit[i][j]=false;
+            framesLitNum=0;
         }
     } 
-
+    //INITIALIZE: SPAWN MAX AMOUNT OF SQUARES
+    for (int i=0; i<LIT_LIMIT; i++) {spawnSquare();}
 }
 
 void updateGame(void) {
-
+    if (squaresSpawnCooldown) {squaresSpawnCooldown--;}
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         mousePos = GetMousePosition();
         // If mouse is in the grid region
@@ -126,58 +161,125 @@ void updateGame(void) {
             int sqX = (mousePos.y - GRID_MARGIN_TOP) / SQUARE_SIZE;
             int sqY = (mousePos.x - GRID_MARGIN_BOTTOM) / SQUARE_SIZE;   
             
-            framesLit[sqX][sqY] = true;
+            if (framesLit[sqX][sqY]) {resetSquare(sqX, sqY);}
         }
     }
 
-    for (int i=0; i<3; i++) {
-        for (int j=0; j<6; j++) {
-
-            if (framesLitTime[i][j] == 90){
-                framesLit[i][j] = false;
-                framesLitTime[i][j] = 0;
-            }
-            
-            if (framesLit[i][j]) {
-                framesLitTime[i][j]++;
+    for (int i=0; i<SQUARESY; i++) {
+        for (int j=0; j<SQUARESX; j++) {
+            if (framesCooldown[i][j]) {framesCooldown[i][j]--;}
+            if (framesLit[i][j]) {framesLitTime[i][j]++;}
+            if (framesLitTime[i][j] > LIT_TIME){
+                lives--;
+                if (lives == 0) {
+                    gameOver = true;
+                    return;
+                }
+                resetSquare(i,j);
             }
         }
     }
 
+    if (!squaresSpawnCooldown) {
+        for (int i=0; i<min(SPAWN_MAX, LIT_LIMIT-framesLitNum); i++) { 
+            spawnSquare();
+        }
+        squaresSpawnCooldown = SPAWN_COOLDOWN;
+    }
+
+}
+
+void drawGameScreen(void) {
+    drawPlane();
+    drawGrid();
+    drawSquares();
+    drawLives();
+    // displayStats();
+}
+
+void drawEndScreen(void) {
+    drawGameScreen();
+    DrawText("GAME OVER", 200, SCREEN_HEIGHT/2, 75, BLACK);
+}
+
+void updateFrame(void) {
+    if (gameOver) {drawEndScreen(); return;}
+    updateGame();
+    drawGameScreen();
+}
+
+// ---------------------------------
+// DRAWING HELPERS
+
+void drawPlane(void) {
+    for (int i=0; i<SCREEN_WIDTH; i+=PLANE_LINE_SPACE) {
+        DrawLineEx((Vector2){i, 0}, (Vector2){i,SCREEN_HEIGHT}, 1,  PLANE_LINES_COLOR);
+    }
+    for (int i=0; i<SCREEN_HEIGHT; i+=PLANE_LINE_SPACE) {
+        DrawLineEx((Vector2){0,i}, (Vector2){SCREEN_WIDTH,i}, 1, PLANE_LINES_COLOR);
+    }
 }
 
 void drawGrid(void) {
     // HORIZONTAL
     for (int i=GRID_MARGIN_TOP; i<=SCREEN_HEIGHT-GRID_MARGIN_BOTTOM; i += SQUARE_SIZE) {
-        DrawLineV((Vector2){GRID_MARGIN_LEFT, i}, (Vector2){SCREEN_WIDTH-GRID_MARGIN_RIGHT, i}, GetColor(0x4b7696));
+        DrawLineEx((Vector2){GRID_MARGIN_LEFT, i}, (Vector2){SCREEN_WIDTH-GRID_MARGIN_RIGHT, i}, 2.5, GRID_LINES_COLOR);
     }
     //VERTICAL
     for (int i=GRID_MARGIN_LEFT; i<=SCREEN_WIDTH-GRID_MARGIN_RIGHT; i += SQUARE_SIZE) {
-        DrawLineV((Vector2){i, GRID_MARGIN_TOP}, (Vector2){i, SCREEN_HEIGHT-GRID_MARGIN_BOTTOM}, GetColor(0x4b7696));
+        DrawLineEx((Vector2){i, GRID_MARGIN_TOP}, (Vector2){i, SCREEN_HEIGHT-GRID_MARGIN_BOTTOM}, 2.5, GRID_LINES_COLOR);
     }
 }
 
-void drawGameScreen(void) {
-    //CLEAR SCREEN
-    
-    drawGrid();
+void drawLives(void) {
+    for (int i=0; i<lives; i++) {
+        DrawCircle(GRID_MARGIN_LEFT + (GRID_WIDTH / (2 * lives)) + (i * GRID_WIDTH / lives), GRID_MARGIN_TOP/2, 50, LIVES_COLOR);
+    }
+    return;
+}
 
-    // check for frames that should be lit up
-    for (int i=0; i<3; i++) {
-        for (int j=0; j<6; j++) {
+void drawSquares(void) {
+    for (int i=0; i<SQUARESY; i++) {
+        for (int j=0; j<SQUARESX; j++) {
             if (framesLit[i][j]) {
                 //Draw square
                 DrawRectangleV(
                     (Vector2){GRID_MARGIN_LEFT + (j * SQUARE_SIZE), GRID_MARGIN_TOP + (i*SQUARE_SIZE)},
                     (Vector2){SQUARE_SIZE, SQUARE_SIZE},
-                    GetColor(0xeb643b)
+                    SQUARE_COLOR
                 );
             }
         }
     }
 }
 
-void updateFrame(void) {
-    updateGame();
-    drawGameScreen();
+void displayStats(void) {
+    DrawText(TextFormat("FRAMES LIT NUM: %d", framesLitNum), 50, 25, 10, PLANE_LINES_COLOR);
+    DrawText(TextFormat("SQUARE SPAWN COOLDOWN: %d", squaresSpawnCooldown), 200, 25, 10, PLANE_LINES_COLOR);
+    for (int i=0; i<SQUARESY; i++) {
+        for (int j=0; j<SQUARESX; j++) {
+            DrawText(TextFormat("(L: %d, LT: %d, CD: %d)", framesLit[i][j], framesLitTime[i][j], framesCooldown[i][j]), 20 + (j * 120), 50 + (i * 50), 10, GetColor(0x0b0d40));
+        }
+    }
+}
+
+// ---------------------------------
+// UPDATE HELPERS
+
+void spawnSquare(void) {
+    while (true) {
+        int ran = GetRandomValue(0,(SQUARESX*SQUARESY)-1);
+        if (!framesLit[(int)ran/6][ran%6] && !framesCooldown[(int)ran/6][ran%6]) {
+            framesLit[(int)ran/6][ran%6] = true;
+            framesLitNum++;
+            return;
+        } 
+    }
+}
+
+void resetSquare(int x, int y) {
+    framesLit[x][y] = false;
+    framesLitTime[x][y] = 0;
+    framesCooldown[x][y] = COOLDOWN;
+    framesLitNum--;
 }
