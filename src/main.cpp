@@ -141,6 +141,11 @@ int main(void) {
     //--------------------------------------------------------------------------------------
 
     initGameScreen();
+    // INITIALIZE MUSIC
+    InitAudioDevice();
+    Music TEST_BGM = LoadMusicStream("../assets/bgm/Test_song.mp3");
+    TEST_BGM.looping = true;
+    PlayMusicStream(TEST_BGM);
 
     // Main game loop
     while (!WindowShouldClose())    // Detect window close button or ESC key
@@ -152,6 +157,8 @@ int main(void) {
 
         // Draw
         //----------------------------------------------------------------------------------
+        UpdateMusicStream(TEST_BGM);
+
         BeginDrawing();
             if (!gameStart) {}
             ClearBackground(RAYWHITE);
@@ -160,6 +167,9 @@ int main(void) {
         EndDrawing();
         //----------------------------------------------------------------------------------
     }
+
+    UnloadMusicStream(TEST_BGM);
+    CloseAudioDevice();
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
@@ -182,10 +192,10 @@ void initGameScreen(void) {
     } 
     //INITIALIZE: SPAWN MAX AMOUNT OF SQUARES
     for (int i=0; i<LIT_LIMIT; i++) {spawnSquare();}
+
 }
 
 void updateGame(void) {
-    mousePos = GetMousePosition();
     if (squaresSpawnCooldown) {squaresSpawnCooldown--;}
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         // If mouse is in the grid region
@@ -254,7 +264,8 @@ void drawEndScreen(void) {
 }
 
 void updateFrame(void) {
-    if (gameOver) {drawEndScreen(); drawCursorShadow(); return;}
+    mousePos = GetMousePosition();
+    if (gameOver) {drawEndScreen(); return;}
     updateGame();
     drawGameScreen();
 }
