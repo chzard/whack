@@ -1,7 +1,7 @@
 /*******************************************************************************************
-*  whac-a-mole, but slightly different :)
+*  whac-a-what?
 *  @author: chzard8 (on github)
-*
+* @version: 
 ********************************************************************************************/
 
 #include "../include/raylib.h"
@@ -22,7 +22,7 @@ using namespace std;
 
 //CONSTANTS
 const int SCREEN_WIDTH = 800;
-const int SCREEN_HEIGHT = 600;
+const int SCREEN_HEIGHT = 700;
 
 const int GRID_WIDTH = 600;
 const int GRID_HEIGHT = 300;
@@ -31,18 +31,20 @@ const int SQUARE_SIZE = 100;
 
 const int GRID_MARGIN_LEFT = 100;
 const int GRID_MARGIN_RIGHT = 100;
-const int GRID_MARGIN_TOP = 200;
-const int GRID_MARGIN_BOTTOM = 100;
+const int GRID_MARGIN_TOP = 100;
+const int GRID_MARGIN_BOTTOM = 300;
 
-const int SQUARESX = GRID_WIDTH / SQUARE_SIZE;  // Num of squares per row
-const int SQUARESY = GRID_HEIGHT / SQUARE_SIZE; // Num of squares per column
+const int SQUARESX = GRID_WIDTH / SQUARE_SIZE;      // Num of squares per row
+const int SQUARESY = GRID_HEIGHT / SQUARE_SIZE;     // Num of squares per column
 
-const int LIT_LIMIT = 5;                        // Max amount of lit squares at any frame
-const int STANDBY_LIMIT = 8;
-const int SPAWN_MAX = 4;                        // Max amount of squares that can spawn after cooldown
-const int LIT_TIME = 150;                       // Frames = 150 = 2.5 seconds 
-const int COOLDOWN = 180;                       // Frames = 180 = 3 seconds
-const int SPAWN_COOLDOWN = 30;                  // Frames = 30 = 0.5 seconds
+const int LIT_LIMIT = 5;                            // Max amount of lit squares at any time
+const int STANDBY_LIMIT = 6;                        // Max amount of 'standby' squares at any time
+const int SPAWN_MAX = 3;                            // Max amount of LIT squares that can spawn after cooldown
+const int SB_SPAWN_MAX = 4;                         // Max amoutn of 'standby' squares that can spawn at once
+const int DESPAWN_MAX = 4;                          // Max amount of 'standby' squares that can despawn at once
+const int LIT_TIME = 150;                           // Frames = 150 = 2.5 seconds 
+const int COOLDOWN = 180;                           // Frames = 180 = 3 seconds
+const int SPAWN_COOLDOWN = 30;                      // Frames = 30 = 0.5 seconds
 
 const Color PLANE_LINES_COLOR = ColorFromHSV(220, 0.1, 0.6);
 const Color GRID_LINES_COLOR = ColorFromHSV(260, 0.58, 0.25);
@@ -52,13 +54,9 @@ const Color SQUARE_COLOR = ColorFromHSV(125, 0.7, 0.7);
 const Color SQUARE_WR_COLOR = ColorFromHSV(5, 0.7, 0.85);
 const Color SQUARE_SB_COLOR = ColorFromHSV(45, 0.78, 0.85);
 
-// LOAD IMAGING
-
-//const Image TEST_SPRITE_GREEN = LoadImage("../assets/sprites/TestSpriteGreen_scaled.png");
-
 //GLOBAL
 
-int lives = 5;
+int lives = 8;
 int score = 0;
 
 bool gameStart = true;
@@ -67,9 +65,6 @@ bool gameOver = false;
 int framesLitNum = 0;
 int framesStandbyNum = 0;
 int squaresSpawnCooldown = 0;
-
-// COLOR CHANGES: OPTIONAL
-
 
 Vector2 mousePos = {0,0};
 
@@ -88,7 +83,7 @@ void drawGameScreen(void);
 void drawEndScreen(void);
 
 void spawnSquare(int act);
-void resetSquare(int x, int y, int act);
+void despawnSquare(int x, int y);
 void RESET_ALL(void);
 
 struct {
@@ -120,13 +115,6 @@ int main(void) {
     // Main game loop
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
-        // Update
-        //----------------------------------------------------------------------------------
-        // TODO: Update your variables here
-        //----------------------------------------------------------------------------------
-
-        // Draw
-        //----------------------------------------------------------------------------------
         UpdateMusicStream(TEST_BGM);
 
         BeginDrawing();
@@ -155,7 +143,9 @@ void initGameScreen(void) {
     // watch house md you freaky little herpeee
         
     //INITIALIZE: SPAWN MAX AMOUNT OF LIT SQUARES
-    for (int i=0; i<LIT_LIMIT; i++) {spawnSquare(LIT);}
+    for (int i=0; i<LIT_LIMIT-2; i++) {spawnSquare(LIT);}
+    for (int i=0; i<STANDBY_LIMIT-2; i++) {spawnSquare(STANDBY);}
+    squaresSpawnCooldown=SPAWN_COOLDOWN;
 }
 
 void updateGame(void) {
@@ -171,9 +161,14 @@ void updateGame(void) {
             int sqX = (mousePos.x - GRID_MARGIN_LEFT) / SQUARE_SIZE;   
             int sqY = (mousePos.y - GRID_MARGIN_TOP) / SQUARE_SIZE;
 
-            if (squares[sqY][sqX].action == LIT) {resetSquare(sqX, sqY, LIT);}
+            if (squares[sqY][sqX].action == LIT) {
+                framesLitNum--;
+                despawnSquare(sqX, sqY);
+            }
             else {
+                if (squares[sqY][sqX].action == STANDBY) {framesStandbyNum--;}
                 squares[sqY][sqX].action = INC_CLICK;
+                squares[sqY][sqX].actionTime = 0;
                 lives--;
                 if (lives == 0) {
                     gameOver = true;
@@ -186,33 +181,45 @@ void updateGame(void) {
     for (int i=0; i<SQUARESY; i++) {
         for (int j=0; j<SQUARESX; j++) {
             if (squares[i][j].action == NO_ACTION) {continue;}
-            if (squares[i][j].action == COOL) {
+            else if (squares[i][j].action == COOL) {
                 if (squares[i][j].actionTime == 0) {squares[i][j].action = NO_ACTION;}
                 else {squares[i][j].actionTime--;}
             }
             else {
                 squares[i][j].actionTime++;
                 if (squares[i][j].actionTime > LIT_TIME){
-                    resetSquare(i, j, squares[i][j].action);
                     if (squares[i][j].action == LIT) {
                         lives--;
                         if (lives == 0) {
                             gameOver = true;
                             return;
                         }
+                        framesLitNum--;
+                        despawnSquare(j,i);
                     }
-                    squares[i][j].action = COOL;
-                    squares[i][j].actionTime = COOLDOWN;
+                    else if (squares[i][j].action == STANDBY) {
+                        int gen = GetRandomValue(1, framesStandbyNum);
+                        if (gen <= DESPAWN_MAX) {
+                            framesStandbyNum--;
+                            despawnSquare(j,i);
+                        }
+                    }
+                    else {despawnSquare(j,i);}
                 }
             }
         }
     }
 
     if (!squaresSpawnCooldown) {
-        int LS = min(GetRandomValue(0,SPAWN_MAX), LIT_LIMIT - framesLitNum); 
-        int SBS = min(SPAWN_MAX - LS, STANDBY_LIMIT - framesStandbyNum);
-        for (int i=0; i<LS; i++) {spawnSquare(LIT);}
-        for (int i=0; i<SBS; i++) {spawnSquare(STANDBY);}
+        if (framesLitNum<LIT_LIMIT) {
+            int TIMES = GetRandomValue(1, min(SPAWN_MAX, LIT_LIMIT - framesLitNum));
+            for (int i=0; i<TIMES; i++) {spawnSquare(LIT);}
+        }
+        if (framesStandbyNum<STANDBY_LIMIT) {
+            int TIMES = GetRandomValue(1, min(SB_SPAWN_MAX, STANDBY_LIMIT - framesStandbyNum));
+            for (int i=0; i<TIMES; i++) {spawnSquare(STANDBY);}
+        }
+        
         squaresSpawnCooldown = SPAWN_COOLDOWN;
     }
 
@@ -223,6 +230,8 @@ void drawGameScreen(void) {
     drawSquares();
     drawLives();
     drawGrid();
+    DrawText(TextFormat("LIT: %d", framesLitNum), 50, 50, 15, BLACK);
+    DrawText(TextFormat("STANDBY: %d", framesStandbyNum), 100, 50, 15, BLACK);
     drawCursorShadow();
 }
 
@@ -263,7 +272,7 @@ void drawGrid(void) {
 
 void drawLives(void) {
     for (int i=0; i<lives; i++) {
-        DrawCircle(GRID_MARGIN_LEFT + (GRID_WIDTH / (2 * lives)) + (i * GRID_WIDTH / lives), GRID_MARGIN_TOP/2, 50, LIVES_COLOR);
+        DrawCircle(GRID_MARGIN_LEFT + (GRID_WIDTH / (2 * lives)) + (i * GRID_WIDTH / lives), SCREEN_HEIGHT-(GRID_MARGIN_BOTTOM/2), 20, LIVES_COLOR);
     }
 }
 
@@ -288,30 +297,29 @@ void drawSquares(void) {
 }
 
 void drawCursorShadow(void) {
-    DrawCircle(mousePos.x, mousePos.y, (SQUARE_SIZE/3)+10, CURSOR_SHADOW);
+    DrawCircle(mousePos.x, mousePos.y, (SQUARE_SIZE/4)+10, CURSOR_SHADOW);
 }
 
 // ---------------------------------
 // UPDATE HELPERS
 
 void spawnSquare(int act) {
-    for (int i=0; i<(SQUARESX * SQUARESY); i++) {
+    for (int i=0; i<(2*SQUARESX*SQUARESY); i++) {
         int ran = GetRandomValue(0,(SQUARESX*SQUARESY)-1);
-        if (squares[(int)ran/6][ran%6].action == 0) {
-            squares[(int)ran/6][ran%6].action = act;
-            if (act == LIT) {framesLitNum++;}
+        if (squares[(int)ran/SQUARESX][ran%SQUARESX].action == NO_ACTION) {
+            squares[(int)ran/SQUARESX][ran%SQUARESX].action = act;
             if (act == STANDBY) {framesStandbyNum++;}
+            if (act == LIT) {framesLitNum++;}
             return;
         } 
     }
 }
 
-void resetSquare(int x, int y, int act) {
-    squares[y][x].action = NO_ACTION;
-    squares[y][x].actionTime = 0;
-    if (act == LIT) {framesLitNum--;}
-    else if (act == STANDBY) {framesStandbyNum--;}
+void despawnSquare(int x, int y) {
+    squares[y][x].action = COOL;
+    squares[y][x].actionTime = COOLDOWN;
 }
+
 
 void RESET_ALL() {
     for (int i=0; i<SQUARESY; i++) {
