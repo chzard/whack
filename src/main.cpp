@@ -56,11 +56,10 @@ const Color SQUARE_WR_COLOR = ColorFromHSV(5, 0.7, 0.85);
 const Color SQUARE_SB_COLOR = ColorFromHSV(45, 0.78, 0.85);
 
 // IMAGES & TEXTURES
-
-vector<Texture2D> STANDBY_SPRITES;
-vector<Texture2D> LIT_SPRITES;
-
-Texture2D SPRITE_GREEN;
+//Texture2D SPRITE_GREEN;
+Texture2D BLUE_FISH_ALIVE;
+Texture2D BLUE_FISH_DEAD;
+Texture2D BLUE_FISH_DIRTY;
 
 //GLOBAL
 
@@ -122,12 +121,17 @@ int main(void) {
     TEST_BGM.looping = true;
     PlayMusicStream(TEST_BGM);
 
-    Image TEST_SPRITE_GREEN = LoadImage("../assets/sprites/TestSpriteGreen_scaled.png");
-    ImageResize(&TEST_SPRITE_GREEN, SQUARE_SIZE, SQUARE_SIZE);
-    Texture2D SG = LoadTextureFromImage(TEST_SPRITE_GREEN);
-    SPRITE_GREEN = SG;
+    //  LOAD TEXTURES
+
+    // Image TEST_SPRITE_GREEN = LoadImage("../assets/sprites/TestSpriteGreen_scaled.png");
+    // ImageResize(&TEST_SPRITE_GREEN, SQUARE_SIZE, SQUARE_SIZE);
+    // SPRITE_GREEN = LoadTextureFromImage(TEST_SPRITE_GREEN);
     
-    UnloadImage(TEST_SPRITE_GREEN);
+    // UnloadImage(TEST_SPRITE_GREEN);
+
+    BLUE_FISH_ALIVE = LoadTexture("../assets/sprites/blue_fish_alive.PNG");
+    BLUE_FISH_DEAD = LoadTexture("../assets/sprites/blue_fish_dead.PNG");
+    BLUE_FISH_DIRTY = LoadTexture("../assets/sprites/blue_fish_dirty.PNG");
 
     // Main game loop
     while (!WindowShouldClose())    // Detect window close button or ESC key
@@ -144,6 +148,10 @@ int main(void) {
 
     UnloadMusicStream(TEST_BGM);
     CloseAudioDevice();
+
+    UnloadTexture(BLUE_FISH_ALIVE);
+    UnloadTexture(BLUE_FISH_DEAD);
+    UnloadTexture(BLUE_FISH_DIRTY);
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
@@ -189,6 +197,7 @@ void updateGame(void) {
             else {
                 if (squares[sqY][sqX].action == STANDBY) {framesStandbyNum--;}
                 squares[sqY][sqX].action = INC_CLICK;
+                squares[sqY][sqX].spriteid = BLUE_FISH_DEAD; 
                 squares[sqY][sqX].actionTime = 0;
                 lives--;
                 if (lives == 0) {
@@ -203,7 +212,9 @@ void updateGame(void) {
         for (int j=0; j<SQUARESX; j++) {
             if (squares[i][j].action == NO_ACTION) {continue;}
             else if (squares[i][j].action == COOL) {
-                if (squares[i][j].actionTime == 0) {squares[i][j].action = NO_ACTION;}
+                if (squares[i][j].actionTime == 0) {
+                    squares[i][j].action = NO_ACTION;
+                }
                 else {squares[i][j].actionTime--;}
             }
             else {
@@ -317,19 +328,19 @@ void drawSquares(void) {
 }
 
 void drawSprite(int x, int y) {
-    if (squares[y][x].action == LIT) {
-        DrawTexture(squares[y][x].spriteid, GRID_MARGIN_LEFT + (x * SQUARE_SIZE), GRID_MARGIN_TOP + (y*SQUARE_SIZE), WHITE);
-    }
-    else {
-        //Draw square
-        DrawRectangleV(
-            (Vector2){GRID_MARGIN_LEFT + (x * SQUARE_SIZE), GRID_MARGIN_TOP + (y*SQUARE_SIZE)},
-            (Vector2){SQUARE_SIZE, SQUARE_SIZE},
-            (squares[y][x].action == INC_CLICK ? 
-                SQUARE_WR_COLOR : 
-                SQUARE_SB_COLOR)
-        );
-    }
+    //if (squares[y][x].action == LIT) {
+    DrawTexture(squares[y][x].spriteid, GRID_MARGIN_LEFT + (x * SQUARE_SIZE), GRID_MARGIN_TOP + (y*SQUARE_SIZE), WHITE);
+    // }
+    // else {
+    //     //Draw square
+    //     DrawRectangleV(
+    //         (Vector2){GRID_MARGIN_LEFT + (x * SQUARE_SIZE), GRID_MARGIN_TOP + (y*SQUARE_SIZE)},
+    //         (Vector2){SQUARE_SIZE, SQUARE_SIZE},
+    //         (squares[y][x].action == INC_CLICK ? 
+    //             SQUARE_WR_COLOR : 
+    //             SQUARE_SB_COLOR)
+    //     );
+    // }
 }
 
 void drawCursorShadow(void) {
@@ -347,14 +358,13 @@ void spawnSquare(int act) {
             squares[sqY][sqX].action = act;
             if (act == STANDBY) {
                 framesStandbyNum++;
-                //squares[sqY][sqX].sprite = "none";
+                squares[sqY][sqX].spriteid = BLUE_FISH_ALIVE;
             }
             if (act == LIT) {
                 framesLitNum++;
-                squares[sqY][sqX].spriteid = SPRITE_GREEN;
+                squares[sqY][sqX].spriteid = BLUE_FISH_DIRTY;
             }
             return;
-
         } 
     }
 }
