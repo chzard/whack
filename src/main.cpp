@@ -7,6 +7,7 @@
 #include "../include/raylib.h"
 #include <string>
 #include <algorithm>
+#include <vector>
 using namespace std;
 
 //DEFINES
@@ -54,6 +55,13 @@ const Color SQUARE_COLOR = ColorFromHSV(125, 0.7, 0.7);
 const Color SQUARE_WR_COLOR = ColorFromHSV(5, 0.7, 0.85);
 const Color SQUARE_SB_COLOR = ColorFromHSV(45, 0.78, 0.85);
 
+// IMAGES & TEXTURES
+
+vector<Texture2D> STANDBY_SPRITES;
+vector<Texture2D> LIT_SPRITES;
+
+Texture2D SPRITE_GREEN;
+
 //GLOBAL
 
 int lives = 8;
@@ -78,6 +86,7 @@ void drawPlane(void);
 void drawGrid(void);
 void drawLives(void);
 void drawSquares(void);
+void drawSprite(int x, int y);
 void drawCursorShadow(void);
 void drawGameScreen(void);
 void drawEndScreen(void);
@@ -90,6 +99,7 @@ struct {
     int action;
     int actionTime;
     string sprite;
+    Texture2D spriteid;
 } squares[SQUARESY][SQUARESX];
 
 //------------------------------------------------------------------------------------
@@ -111,6 +121,13 @@ int main(void) {
     Music TEST_BGM = LoadMusicStream("../assets/bgm/Test_song.mp3");
     TEST_BGM.looping = true;
     PlayMusicStream(TEST_BGM);
+
+    Image TEST_SPRITE_GREEN = LoadImage("../assets/sprites/TestSpriteGreen_scaled.png");
+    ImageResize(&TEST_SPRITE_GREEN, SQUARE_SIZE, SQUARE_SIZE);
+    Texture2D SG = LoadTextureFromImage(TEST_SPRITE_GREEN);
+    SPRITE_GREEN = SG;
+    
+    UnloadImage(TEST_SPRITE_GREEN);
 
     // Main game loop
     while (!WindowShouldClose())    // Detect window close button or ESC key
@@ -146,6 +163,10 @@ void initGameScreen(void) {
     for (int i=0; i<LIT_LIMIT-2; i++) {spawnSquare(LIT);}
     for (int i=0; i<STANDBY_LIMIT-2; i++) {spawnSquare(STANDBY);}
     squaresSpawnCooldown=SPAWN_COOLDOWN;
+
+    // SPRITES
+    // LOAD IMAGEs
+
 }
 
 void updateGame(void) {
@@ -230,8 +251,6 @@ void drawGameScreen(void) {
     drawSquares();
     drawLives();
     drawGrid();
-    DrawText(TextFormat("LIT: %d", framesLitNum), 50, 50, 15, BLACK);
-    DrawText(TextFormat("STANDBY: %d", framesStandbyNum), 100, 50, 15, BLACK);
     drawCursorShadow();
 }
 
@@ -281,18 +300,35 @@ void drawSquares(void) {
         for (int j=0; j<SQUARESX; j++) {
             if (squares[i][j].action != NO_ACTION && squares[i][j].action != COOL) {
                 //Draw square
-                DrawRectangleV(
-                    (Vector2){GRID_MARGIN_LEFT + (j * SQUARE_SIZE), GRID_MARGIN_TOP + (i*SQUARE_SIZE)},
-                    (Vector2){SQUARE_SIZE, SQUARE_SIZE},
-                    (squares[i][j].action == LIT ? 
-                        SQUARE_COLOR : 
-                        (squares[i][j].action == INC_CLICK ? 
-                            SQUARE_WR_COLOR : 
-                            SQUARE_SB_COLOR)
-                    )
-                );
+                // DrawRectangleV(
+                //     (Vector2){GRID_MARGIN_LEFT + (j * SQUARE_SIZE), GRID_MARGIN_TOP + (i*SQUARE_SIZE)},
+                //     (Vector2){SQUARE_SIZE, SQUARE_SIZE},
+                //     (squares[i][j].action == LIT ? 
+                //         SQUARE_COLOR : 
+                //         (squares[i][j].action == INC_CLICK ? 
+                //             SQUARE_WR_COLOR : 
+                //             SQUARE_SB_COLOR)
+                //     )
+                // );
+                drawSprite(j,i);
             }
         }
+    }
+}
+
+void drawSprite(int x, int y) {
+    if (squares[y][x].action == LIT) {
+        DrawTexture(squares[y][x].spriteid, GRID_MARGIN_LEFT + (x * SQUARE_SIZE), GRID_MARGIN_TOP + (y*SQUARE_SIZE), WHITE);
+    }
+    else {
+        //Draw square
+        DrawRectangleV(
+            (Vector2){GRID_MARGIN_LEFT + (x * SQUARE_SIZE), GRID_MARGIN_TOP + (y*SQUARE_SIZE)},
+            (Vector2){SQUARE_SIZE, SQUARE_SIZE},
+            (squares[y][x].action == INC_CLICK ? 
+                SQUARE_WR_COLOR : 
+                SQUARE_SB_COLOR)
+        );
     }
 }
 
@@ -306,11 +342,19 @@ void drawCursorShadow(void) {
 void spawnSquare(int act) {
     for (int i=0; i<(2*SQUARESX*SQUARESY); i++) {
         int ran = GetRandomValue(0,(SQUARESX*SQUARESY)-1);
-        if (squares[(int)ran/SQUARESX][ran%SQUARESX].action == NO_ACTION) {
-            squares[(int)ran/SQUARESX][ran%SQUARESX].action = act;
-            if (act == STANDBY) {framesStandbyNum++;}
-            if (act == LIT) {framesLitNum++;}
+        int sqY = ran/SQUARESX, sqX = ran%SQUARESX;
+        if (squares[sqY][sqX].action == NO_ACTION) {
+            squares[sqY][sqX].action = act;
+            if (act == STANDBY) {
+                framesStandbyNum++;
+                //squares[sqY][sqX].sprite = "none";
+            }
+            if (act == LIT) {
+                framesLitNum++;
+                squares[sqY][sqX].spriteid = SPRITE_GREEN;
+            }
             return;
+
         } 
     }
 }
