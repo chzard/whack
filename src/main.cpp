@@ -89,6 +89,7 @@ void drawSprite(int x, int y);
 void drawCursorShadow(void);
 void drawGameScreen(void);
 void drawEndScreen(void);
+void drawStartScreen(void);
 
 void spawnSquare(int act);
 void despawnSquare(int x, int y);
@@ -175,9 +176,12 @@ void initGameScreen(void) {
     // SPRITES
     // LOAD IMAGEs
 
+    gameStart=false;
+
 }
 
 void updateGame(void) {
+
     if (squaresSpawnCooldown) {squaresSpawnCooldown--;}
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
@@ -270,7 +274,14 @@ void drawEndScreen(void) {
     DrawText("GAME OVER", 200, SCREEN_HEIGHT/2, 75, BLACK);
 }
 
+void drawStartScreen(void) {
+    DrawText("whac-a-what?", 150, SCREEN_HEIGHT/2, 75, BLACK);
+}
+
 void updateFrame(void) {
+    if (!gameStart) {
+        
+    }
     mousePos = GetMousePosition();
     if (gameOver) {drawEndScreen(); return;}
     updateGame();
