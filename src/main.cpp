@@ -18,6 +18,7 @@ using namespace std;
 #define INC_CLICK 2
 #define STANDBY 3
 #define COOL 4
+#define SB_CLICK 5
 
 //GLOBAL VARIABLES
 
@@ -55,12 +56,6 @@ const Color SQUARE_COLOR = ColorFromHSV(125, 0.7, 0.7);
 const Color SQUARE_WR_COLOR = ColorFromHSV(5, 0.7, 0.85);
 const Color SQUARE_SB_COLOR = ColorFromHSV(45, 0.78, 0.85);
 
-// IMAGES & TEXTURES
-//Texture2D SPRITE_GREEN;
-Texture2D BLUE_FISH_ALIVE;
-Texture2D BLUE_FISH_DEAD;
-Texture2D BLUE_FISH_DIRTY;
-
 //GLOBAL
 
 int lives = 8;
@@ -85,7 +80,7 @@ void drawPlane(void);
 void drawGrid(void);
 void drawLives(void);
 void drawSquares(void);
-void drawSprite(int x, int y);
+void drawSprite(int x, int y, Texture2D draw);
 void drawCursorShadow(void);
 void drawGameScreen(void);
 void drawEndScreen(void);
@@ -95,11 +90,25 @@ void spawnSquare(int act);
 void despawnSquare(int x, int y);
 void RESET_ALL(void);
 
+struct fishSprite {
+    Texture2D alive;
+    Texture2D dead;
+    Texture2D dirty;
+    Texture2D missing;
+};
+
+// TEXTURES
+
+fishSprite FISH1;
+//fishSprite FISH2;
+//fishSprite SPECIALFISH1;
+
+//fishSprite sprites[3];
+
 struct {
     int action;
     int actionTime;
-    string sprite;
-    Texture2D spriteid;
+    fishSprite fishType;
 } squares[SQUARESY][SQUARESX];
 
 //------------------------------------------------------------------------------------
@@ -109,12 +118,10 @@ int main(void) {
     // Initialization
     //--------------------------------------------------------------------------------------
 
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "im gonna fucking kill myself");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "dirty gloves");
 
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
-
-    initGameScreen();
 
     // INITIALIZE MUSIC
     InitAudioDevice();
@@ -124,15 +131,26 @@ int main(void) {
 
     //  LOAD TEXTURES
 
-    // Image TEST_SPRITE_GREEN = LoadImage("../assets/sprites/TestSpriteGreen_scaled.png");
-    // ImageResize(&TEST_SPRITE_GREEN, SQUARE_SIZE, SQUARE_SIZE);
-    // SPRITE_GREEN = LoadTextureFromImage(TEST_SPRITE_GREEN);
-    
-    // UnloadImage(TEST_SPRITE_GREEN);
+    FISH1.alive = LoadTexture("../assets/sprites/fish/1/alive.PNG");
+    FISH1.dead = LoadTexture("../assets/sprites/fish/1/dead.PNG");
+    FISH1.dirty = LoadTexture("../assets/sprites/fish/1/dirty.PNG");
+    FISH1.missing = LoadTexture("../assets/sprites/fish/1/missing.PNG");
 
-    BLUE_FISH_ALIVE = LoadTexture("../assets/sprites/blue_fish_alive.PNG");
-    BLUE_FISH_DEAD = LoadTexture("../assets/sprites/blue_fish_dead.PNG");
-    BLUE_FISH_DIRTY = LoadTexture("../assets/sprites/blue_fish_dirty.PNG");
+    // FISH2.alive = LoadTexture("../assets/sprites/fish/2/alive.PNG");
+    // FISH2.dead = LoadTexture("../assets/sprites/fish/2/dead.PNG");
+    // FISH2.dirty = LoadTexture("../assets/sprites/fish/2/dirty.PNG");
+    // FISH2.missing = LoadTexture("../assets/sprites/fish/2/missing.PNG");
+
+    // SPECIALFISH1.alive = LoadTexture("../assets/sprites/spec/1/alive.PNG");
+    // SPECIALFISH1.dead = LoadTexture("../assets/sprites/spec/1/dead.PNG");
+    // SPECIALFISH1.dirty = LoadTexture("../assets/sprites/spec/1/dirty.PNG");
+    // SPECIALFISH1.missing = LoadTexture("../assets/sprites/spec/1/missing.PNG");
+
+    // sprites[0]=FISH1;
+    // sprites[1]=FISH2;
+    // sprites[2]=SPECIALFISH1;
+
+    initGameScreen();
 
     // Main game loop
     while (!WindowShouldClose())    // Detect window close button or ESC key
@@ -150,9 +168,10 @@ int main(void) {
     UnloadMusicStream(TEST_BGM);
     CloseAudioDevice();
 
-    UnloadTexture(BLUE_FISH_ALIVE);
-    UnloadTexture(BLUE_FISH_DEAD);
-    UnloadTexture(BLUE_FISH_DIRTY);
+    UnloadTexture(FISH1.alive);
+    UnloadTexture(FISH1.dead);
+    UnloadTexture(FISH1.dirty);
+    UnloadTexture(FISH1.missing);
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
@@ -165,6 +184,11 @@ int main(void) {
 void initGameScreen(void) {
     RESET_ALL();
 
+    for (int i=0; i<SQUARESY; i++) {
+        for (int j=0; j<SQUARESX; j++) {
+            squares[i][j].fishType=FISH1;
+        }
+    }
     // PSA: if you see a cs major, pet it (it's probably in desperate need of petting)
     // watch house md you freaky little herpeee
         
@@ -172,9 +196,6 @@ void initGameScreen(void) {
     for (int i=0; i<LIT_LIMIT-2; i++) {spawnSquare(LIT);}
     for (int i=0; i<STANDBY_LIMIT-2; i++) {spawnSquare(STANDBY);}
     squaresSpawnCooldown=SPAWN_COOLDOWN;
-
-    // SPRITES
-    // LOAD IMAGEs
 
     gameStart=false;
 
@@ -201,7 +222,6 @@ void updateGame(void) {
             else {
                 if (squares[sqY][sqX].action == STANDBY) {framesStandbyNum--;}
                 squares[sqY][sqX].action = INC_CLICK;
-                squares[sqY][sqX].spriteid = BLUE_FISH_DEAD; 
                 squares[sqY][sqX].actionTime = 0;
                 lives--;
                 if (lives == 0) {
@@ -262,28 +282,37 @@ void updateGame(void) {
 }
 
 void drawGameScreen(void) {
-    drawPlane();
+    //drawPlane();
     drawSquares();
     drawLives();
-    drawGrid();
-    drawCursorShadow();
+    //drawGrid();
+    //drawCursorShadow();
 }
 
 void drawEndScreen(void) {
     drawGameScreen();
-    DrawText("GAME OVER", 200, SCREEN_HEIGHT/2, 75, BLACK);
+    DrawText("GAME OVER", 180, SCREEN_HEIGHT/2, 75, BLACK);
 }
 
 void drawStartScreen(void) {
-    DrawText("whac-a-what?", 150, SCREEN_HEIGHT/2, 75, BLACK);
+    drawPlane();
+    DrawText("whac-a-what?", 150, SCREEN_HEIGHT/2 - 75/2, 75, BLACK);
+    DrawText("press enter to play", 220, SCREEN_HEIGHT/2 + 50 - 10, 20, BLACK);
 }
 
 void updateFrame(void) {
-    if (!gameStart) {
-        
-    }
     mousePos = GetMousePosition();
-    if (gameOver) {drawEndScreen(); return;}
+    drawCursorShadow();
+    if (!gameStart) {
+        if (IsKeyPressed(KEY_ENTER)) {
+            gameStart=true;
+        }
+        else {drawStartScreen(); return;}
+    }
+    
+    if (gameOver) {
+        drawEndScreen(); return;
+    }
     updateGame();
     drawGameScreen();
 }
@@ -320,38 +349,15 @@ void drawLives(void) {
 void drawSquares(void) {
     for (int i=0; i<SQUARESY; i++) {
         for (int j=0; j<SQUARESX; j++) {
-            if (squares[i][j].action != NO_ACTION && squares[i][j].action != COOL) {
-                //Draw square
-                // DrawRectangleV(
-                //     (Vector2){GRID_MARGIN_LEFT + (j * SQUARE_SIZE), GRID_MARGIN_TOP + (i*SQUARE_SIZE)},
-                //     (Vector2){SQUARE_SIZE, SQUARE_SIZE},
-                //     (squares[i][j].action == LIT ? 
-                //         SQUARE_COLOR : 
-                //         (squares[i][j].action == INC_CLICK ? 
-                //             SQUARE_WR_COLOR : 
-                //             SQUARE_SB_COLOR)
-                //     )
-                // );
-                drawSprite(j,i);
-            }
+            if (squares[i][j].action == LIT) {drawSprite(j,i, squares[i][j].fishType.dirty);}
+            else if (squares[i][j].action == STANDBY) {drawSprite(j,i, squares[i][j].fishType.alive);}
+            else if (squares[i][j].action == INC_CLICK) {drawSprite(j,i, squares[i][j].fishType.dead);}
         }
     }
 }
 
-void drawSprite(int x, int y) {
-    //if (squares[y][x].action == LIT) {
-    DrawTexture(squares[y][x].spriteid, GRID_MARGIN_LEFT + (x * SQUARE_SIZE), GRID_MARGIN_TOP + (y*SQUARE_SIZE), WHITE);
-    // }
-    // else {
-    //     //Draw square
-    //     DrawRectangleV(
-    //         (Vector2){GRID_MARGIN_LEFT + (x * SQUARE_SIZE), GRID_MARGIN_TOP + (y*SQUARE_SIZE)},
-    //         (Vector2){SQUARE_SIZE, SQUARE_SIZE},
-    //         (squares[y][x].action == INC_CLICK ? 
-    //             SQUARE_WR_COLOR : 
-    //             SQUARE_SB_COLOR)
-    //     );
-    // }
+void drawSprite(int x, int y, Texture2D draw) {
+    DrawTexture(draw, GRID_MARGIN_LEFT + (x * SQUARE_SIZE), GRID_MARGIN_TOP + (y*SQUARE_SIZE), WHITE);
 }
 
 void drawCursorShadow(void) {
@@ -369,11 +375,9 @@ void spawnSquare(int act) {
             squares[sqY][sqX].action = act;
             if (act == STANDBY) {
                 framesStandbyNum++;
-                squares[sqY][sqX].spriteid = BLUE_FISH_ALIVE;
             }
             if (act == LIT) {
                 framesLitNum++;
-                squares[sqY][sqX].spriteid = BLUE_FISH_DIRTY;
             }
             return;
         } 
@@ -383,6 +387,11 @@ void spawnSquare(int act) {
 void despawnSquare(int x, int y) {
     squares[y][x].action = COOL;
     squares[y][x].actionTime = COOLDOWN;
+
+    // CHOOSE A RANDOM SPRITE PACK
+
+    // test: fish pack 1
+    // squares[y][x].fishType = FISH1;
 }
 
 
@@ -391,7 +400,6 @@ void RESET_ALL() {
         for (int j=0; j<SQUARESX; j++) {
             squares[i][j].action = NO_ACTION;
             squares[i][j].actionTime = 0;
-            squares[i][j].sprite = "NONE";
         }
     }
     framesLitNum=0;
