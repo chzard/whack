@@ -48,6 +48,8 @@ const int LIT_TIME = 150;                           // Frames = 150 = 2.5 second
 const int COOLDOWN = 180;                           // Frames = 180 = 3 seconds
 const int SPAWN_COOLDOWN = 30;                      // Frames = 30 = 0.5 seconds
 
+const int MAX_LIVES = 10;
+
 const Color PLANE_LINES_COLOR = ColorFromHSV(220, 0.1, 0.6);
 const Color GRID_LINES_COLOR = ColorFromHSV(260, 0.58, 0.25);
 const Color LIVES_COLOR = ColorFromHSV(359, 0.75, 0.8);
@@ -58,7 +60,7 @@ const Color SQUARE_SB_COLOR = ColorFromHSV(45, 0.78, 0.85);
 
 //GLOBAL
 
-int lives = 8;
+int lives = MAX_LIVES;
 int score = 0;
 
 bool gameStart = true;
@@ -86,6 +88,7 @@ void drawGameScreen(void);
 void drawEndScreen(void);
 void drawStartScreen(void);
 
+void chooseRandomSprite(int x, int y);
 void spawnSquare(int act);
 void despawnSquare(int x, int y);
 void RESET_ALL(void);
@@ -100,8 +103,8 @@ struct fishSprite {
 // TEXTURES
 
 fishSprite FISH1;
-//fishSprite FISH2;
-//fishSprite SPECIALFISH1;
+fishSprite FISH2;
+fishSprite SPECIALFISH1;
 
 //fishSprite sprites[3];
 
@@ -136,21 +139,22 @@ int main(void) {
     FISH1.dirty = LoadTexture("../assets/sprites/fish/1/dirty.PNG");
     FISH1.missing = LoadTexture("../assets/sprites/fish/1/missing.PNG");
 
-    // FISH2.alive = LoadTexture("../assets/sprites/fish/2/alive.PNG");
-    // FISH2.dead = LoadTexture("../assets/sprites/fish/2/dead.PNG");
-    // FISH2.dirty = LoadTexture("../assets/sprites/fish/2/dirty.PNG");
-    // FISH2.missing = LoadTexture("../assets/sprites/fish/2/missing.PNG");
+    FISH2.alive = LoadTexture("../assets/sprites/fish/2/alive.PNG");
+    FISH2.dead = LoadTexture("../assets/sprites/fish/2/dead.PNG");
+    FISH2.dirty = LoadTexture("../assets/sprites/fish/2/dirty.PNG");
+    FISH2.missing = LoadTexture("../assets/sprites/fish/2/missing.PNG");
 
-    // SPECIALFISH1.alive = LoadTexture("../assets/sprites/spec/1/alive.PNG");
-    // SPECIALFISH1.dead = LoadTexture("../assets/sprites/spec/1/dead.PNG");
-    // SPECIALFISH1.dirty = LoadTexture("../assets/sprites/spec/1/dirty.PNG");
-    // SPECIALFISH1.missing = LoadTexture("../assets/sprites/spec/1/missing.PNG");
+    SPECIALFISH1.alive = LoadTexture("../assets/sprites/spec/1/alive.PNG");
+    SPECIALFISH1.dead = LoadTexture("../assets/sprites/spec/1/dead.PNG");
+    SPECIALFISH1.dirty = LoadTexture("../assets/sprites/spec/1/dirty.PNG");
+    SPECIALFISH1.missing = LoadTexture("../assets/sprites/spec/1/missing.PNG");
 
     // sprites[0]=FISH1;
     // sprites[1]=FISH2;
     // sprites[2]=SPECIALFISH1;
 
     initGameScreen();
+    gameStart = false;
 
     // Main game loop
     while (!WindowShouldClose())    // Detect window close button or ESC key
@@ -186,7 +190,7 @@ void initGameScreen(void) {
 
     for (int i=0; i<SQUARESY; i++) {
         for (int j=0; j<SQUARESX; j++) {
-            squares[i][j].fishType=FISH1;
+            chooseRandomSprite(j,i);
         }
     }
     // PSA: if you see a cs major, pet it (it's probably in desperate need of petting)
@@ -196,8 +200,7 @@ void initGameScreen(void) {
     for (int i=0; i<LIT_LIMIT-2; i++) {spawnSquare(LIT);}
     for (int i=0; i<STANDBY_LIMIT-2; i++) {spawnSquare(STANDBY);}
     squaresSpawnCooldown=SPAWN_COOLDOWN;
-
-    gameStart=false;
+    lives = MAX_LIVES;
 
 }
 
@@ -291,7 +294,8 @@ void drawGameScreen(void) {
 
 void drawEndScreen(void) {
     drawGameScreen();
-    DrawText("GAME OVER", 180, SCREEN_HEIGHT/2, 75, BLACK);
+    DrawText("GAME OVER", 165, SCREEN_HEIGHT/2 - 75/2, 75, BLACK);
+    DrawText("press enter to play again", 220, SCREEN_HEIGHT/2 + 50 - 10, 20, BLACK);
 }
 
 void drawStartScreen(void) {
@@ -311,7 +315,13 @@ void updateFrame(void) {
     }
     
     if (gameOver) {
-        drawEndScreen(); return;
+        if (IsKeyPressed(KEY_ENTER)) {
+            gameOver=false;
+            initGameScreen();
+        }
+        else {
+            drawEndScreen(); return;
+        }
     }
     updateGame();
     drawGameScreen();
@@ -367,6 +377,19 @@ void drawCursorShadow(void) {
 // ---------------------------------
 // UPDATE HELPERS
 
+void chooseRandomSprite(int x, int y) {
+    int gen = GetRandomValue(0, 100);
+    if (gen < 40) {
+        squares[y][x].fishType = FISH1;
+    }
+    else if (gen < 80) {
+        squares[y][x].fishType = FISH2;
+    }
+    else {
+        squares[y][x].fishType = SPECIALFISH1;
+    }
+}
+
 void spawnSquare(int act) {
     for (int i=0; i<(2*SQUARESX*SQUARESY); i++) {
         int ran = GetRandomValue(0,(SQUARESX*SQUARESY)-1);
@@ -389,9 +412,7 @@ void despawnSquare(int x, int y) {
     squares[y][x].actionTime = COOLDOWN;
 
     // CHOOSE A RANDOM SPRITE PACK
-
-    // test: fish pack 1
-    // squares[y][x].fishType = FISH1;
+    chooseRandomSprite(x,y);
 }
 
 
