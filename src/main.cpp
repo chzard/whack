@@ -159,7 +159,7 @@ int main(void) {
     // Main game loop
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
-        UpdateMusicStream(TEST_BGM);
+        if (gameStart && !gameOver) {UpdateMusicStream(TEST_BGM);}
 
         BeginDrawing();
             ClearBackground(RAYWHITE);
@@ -223,8 +223,13 @@ void updateGame(void) {
                 despawnSquare(sqX, sqY);
             }
             else {
-                if (squares[sqY][sqX].action == STANDBY) {framesStandbyNum--;}
-                squares[sqY][sqX].action = INC_CLICK;
+                if (squares[sqY][sqX].action == STANDBY) {
+                    framesStandbyNum--;
+                    squares[sqY][sqX].action = SB_CLICK;
+                }
+                else if (squares[sqY][sqX].action != SB_CLICK) {
+                    squares[sqY][sqX].action = INC_CLICK;
+                }
                 squares[sqY][sqX].actionTime = 0;
                 lives--;
                 if (lives == 0) {
@@ -232,6 +237,7 @@ void updateGame(void) {
                     return;
                 }
             }
+            
         }
     }
 
@@ -257,8 +263,8 @@ void updateGame(void) {
                         despawnSquare(j,i);
                     }
                     else if (squares[i][j].action == STANDBY) {
-                        int gen = GetRandomValue(1, framesStandbyNum);
-                        if (gen <= DESPAWN_MAX) {
+                        int gen = GetRandomValue(10, framesStandbyNum*10);
+                        if (gen > (framesStandbyNum*5)) {
                             framesStandbyNum--;
                             despawnSquare(j,i);
                         }
@@ -308,6 +314,7 @@ void updateFrame(void) {
     mousePos = GetMousePosition();
     drawCursorShadow();
     if (!gameStart) {
+
         if (IsKeyPressed(KEY_ENTER)) {
             gameStart=true;
         }
@@ -361,7 +368,8 @@ void drawSquares(void) {
         for (int j=0; j<SQUARESX; j++) {
             if (squares[i][j].action == LIT) {drawSprite(j,i, squares[i][j].fishType.dirty);}
             else if (squares[i][j].action == STANDBY) {drawSprite(j,i, squares[i][j].fishType.alive);}
-            else if (squares[i][j].action == INC_CLICK) {drawSprite(j,i, squares[i][j].fishType.dead);}
+            else if (squares[i][j].action == INC_CLICK) {drawSprite(j,i, squares[i][j].fishType.missing);}
+            else if (squares[i][j].action == SB_CLICK) {drawSprite(j,i, squares[i][j].fishType.dead);}
         }
     }
 }
