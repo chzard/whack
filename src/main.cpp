@@ -98,13 +98,15 @@ struct fishSprite {
     Texture2D dead;
     Texture2D dirty;
     Texture2D missing;
+    int points;
 };
 
-// TEXTURES
-
+// fISH & TEXTURES
 fishSprite FISH1;
 fishSprite FISH2;
 fishSprite SPECIALFISH1;
+
+Texture2D LIFE;
 
 //fishSprite sprites[3];
 
@@ -133,7 +135,6 @@ int main(void) {
     PlayMusicStream(TEST_BGM);
 
     //  LOAD TEXTURES
-
     FISH1.alive = LoadTexture("../assets/sprites/fish/1/alive.PNG");
     FISH1.dead = LoadTexture("../assets/sprites/fish/1/dead.PNG");
     FISH1.dirty = LoadTexture("../assets/sprites/fish/1/dirty.PNG");
@@ -149,9 +150,12 @@ int main(void) {
     SPECIALFISH1.dirty = LoadTexture("../assets/sprites/spec/1/dirty.PNG");
     SPECIALFISH1.missing = LoadTexture("../assets/sprites/spec/1/missing.PNG");
 
-    // sprites[0]=FISH1;
-    // sprites[1]=FISH2;
-    // sprites[2]=SPECIALFISH1;
+    LIFE = LoadTexture("../assets/sprites/game/life.png");
+
+    // INITIALIZE POINT VALUES
+    FISH1.points = 1;
+    FISH2.points = 1;
+    SPECIALFISH1.points = 5;
 
     initGameScreen();
     gameStart = false;
@@ -200,7 +204,6 @@ void initGameScreen(void) {
     for (int i=0; i<LIT_LIMIT-2; i++) {spawnSquare(LIT);}
     for (int i=0; i<STANDBY_LIMIT-2; i++) {spawnSquare(STANDBY);}
     squaresSpawnCooldown=SPAWN_COOLDOWN;
-    lives = MAX_LIVES;
 
 }
 
@@ -221,6 +224,7 @@ void updateGame(void) {
             if (squares[sqY][sqX].action == LIT) {
                 framesLitNum--;
                 despawnSquare(sqX, sqY);
+                score += squares[sqX][sqY].fishType.points;
             }
             else {
                 if (squares[sqY][sqX].action == STANDBY) {
@@ -294,6 +298,8 @@ void drawGameScreen(void) {
     //drawPlane();
     drawSquares();
     drawLives();
+    // SCORE
+    DrawText(TextFormat("Score: %d", score), (SCREEN_WIDTH/2) - 20,SCREEN_HEIGHT - (2 * GRID_MARGIN_BOTTOM/3), 20, BLACK);
     //drawGrid();
     //drawCursorShadow();
 }
@@ -359,17 +365,19 @@ void drawGrid(void) {
 
 void drawLives(void) {
     for (int i=0; i<lives; i++) {
-        DrawCircle(GRID_MARGIN_LEFT + (GRID_WIDTH / (2 * lives)) + (i * GRID_WIDTH / lives), SCREEN_HEIGHT-(GRID_MARGIN_BOTTOM/2), 20, LIVES_COLOR);
+        //DrawCircle(GRID_MARGIN_LEFT + (GRID_WIDTH / (2 * lives)) + (i * GRID_WIDTH / lives), SCREEN_HEIGHT-(GRID_MARGIN_BOTTOM/3), 10, LIVES_COLOR);
+        //DrawCircle(GRID_MARGIN_LEFT + (GRID_WIDTH / (2 * lives)) + (i * GRID_WIDTH / lives), SCREEN_HEIGHT-(GRID_MARGIN_BOTTOM/3), 10, LIVES_COLOR);
+        DrawTexture(LIFE, GRID_MARGIN_LEFT + 50 + (i * 52), SCREEN_HEIGHT-(GRID_MARGIN_BOTTOM/3), WHITE);
     }
 }
 
 void drawSquares(void) {
     for (int i=0; i<SQUARESY; i++) {
         for (int j=0; j<SQUARESX; j++) {
-            if (squares[i][j].action == LIT) {drawSprite(j,i, squares[i][j].fishType.dirty);}
-            else if (squares[i][j].action == STANDBY) {drawSprite(j,i, squares[i][j].fishType.alive);}
+            if      (squares[i][j].action == LIT)       {drawSprite(j,i, squares[i][j].fishType.dirty);}
+            else if (squares[i][j].action == STANDBY)   {drawSprite(j,i, squares[i][j].fishType.alive);}
             else if (squares[i][j].action == INC_CLICK) {drawSprite(j,i, squares[i][j].fishType.missing);}
-            else if (squares[i][j].action == SB_CLICK) {drawSprite(j,i, squares[i][j].fishType.dead);}
+            else if (squares[i][j].action == SB_CLICK)  {drawSprite(j,i, squares[i][j].fishType.dead);}
         }
     }
 }
@@ -433,4 +441,6 @@ void RESET_ALL() {
     }
     framesLitNum=0;
     framesStandbyNum=0;
+    lives = MAX_LIVES; 
+    score = 0;
 }
