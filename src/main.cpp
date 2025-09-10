@@ -1,7 +1,5 @@
 /*******************************************************************************************
-*  whac-a-what?
-*  @author: chzard8 (on github)
-* @version: 
+*  pet the cs major (dream sweet in c# major) aAAaaAAaaAaaAaaAAAAaloneeee at the edge of a universe humming a tune for merely dreaming we were snow a siren sounds like the goddess who promises endless apologies of paradise and only she can make it right we'll live forever tonight we'll go together in flight instrumental break 
 ********************************************************************************************/
 
 #include "../include/raylib.h"
@@ -108,8 +106,6 @@ fishSprite SPECIALFISH1;
 
 Texture2D LIFE;
 
-//fishSprite sprites[3];
-
 struct {
     int action;
     int actionTime;
@@ -181,6 +177,16 @@ int main(void) {
     UnloadTexture(FISH1.dirty);
     UnloadTexture(FISH1.missing);
 
+    UnloadTexture(FISH2.alive);
+    UnloadTexture(FISH2.dead);
+    UnloadTexture(FISH2.dirty);
+    UnloadTexture(FISH2.missing);
+
+    UnloadTexture(SPECIALFISH1.alive);
+    UnloadTexture(SPECIALFISH1.dead);
+    UnloadTexture(SPECIALFISH1.dirty);
+    UnloadTexture(SPECIALFISH1.missing);
+
     // De-Initialization
     //--------------------------------------------------------------------------------------
     CloseWindow();        // Close window and OpenGL context
@@ -197,6 +203,7 @@ void initGameScreen(void) {
             chooseRandomSprite(j,i);
         }
     }
+
     // PSA: if you see a cs major, pet it (it's probably in desperate need of petting)
     // watch house md you freaky little herpeee
         
@@ -223,8 +230,8 @@ void updateGame(void) {
 
             if (squares[sqY][sqX].action == LIT) {
                 framesLitNum--;
+                score += squares[sqY][sqX].fishType.points;
                 despawnSquare(sqX, sqY);
-                score += squares[sqX][sqY].fishType.points;
             }
             else {
                 if (squares[sqY][sqX].action == STANDBY) {
@@ -241,40 +248,40 @@ void updateGame(void) {
                     return;
                 }
             }
-            
         }
     }
 
     for (int i=0; i<SQUARESY; i++) {
         for (int j=0; j<SQUARESX; j++) {
-            if (squares[i][j].action == NO_ACTION) {continue;}
-            else if (squares[i][j].action == COOL) {
+            if (squares[i][j].action == NO_ACTION) {
+                continue;
+            }
+            if (squares[i][j].action == COOL) {
                 if (squares[i][j].actionTime == 0) {
                     squares[i][j].action = NO_ACTION;
                 }
                 else {squares[i][j].actionTime--;}
+                continue;
             }
-            else {
-                squares[i][j].actionTime++;
-                if (squares[i][j].actionTime > LIT_TIME){
-                    if (squares[i][j].action == LIT) {
-                        lives--;
-                        if (lives == 0) {
-                            gameOver = true;
-                            return;
-                        }
-                        framesLitNum--;
+            squares[i][j].actionTime++;
+            if (squares[i][j].actionTime > LIT_TIME){
+                if (squares[i][j].action == LIT) {
+                    lives--;
+                    if (lives == 0) {
+                        gameOver = true;
+                        return;
+                    }
+                    framesLitNum--;
+                    despawnSquare(j,i);
+                }
+                else if (squares[i][j].action == STANDBY) {
+                    int gen = GetRandomValue(0, framesStandbyNum*10);
+                    if (framesStandbyNum > 2 && gen > (framesStandbyNum*5)) {
+                        framesStandbyNum--;
                         despawnSquare(j,i);
                     }
-                    else if (squares[i][j].action == STANDBY) {
-                        int gen = GetRandomValue(10, framesStandbyNum*10);
-                        if (gen > (framesStandbyNum*5)) {
-                            framesStandbyNum--;
-                            despawnSquare(j,i);
-                        }
-                    }
-                    else {despawnSquare(j,i);}
                 }
+                else {despawnSquare(j,i);}
             }
         }
     }
@@ -288,10 +295,8 @@ void updateGame(void) {
             int TIMES = GetRandomValue(1, min(SB_SPAWN_MAX, STANDBY_LIMIT - framesStandbyNum));
             for (int i=0; i<TIMES; i++) {spawnSquare(STANDBY);}
         }
-        
         squaresSpawnCooldown = SPAWN_COOLDOWN;
     }
-
 }
 
 void drawGameScreen(void) {
@@ -326,15 +331,12 @@ void updateFrame(void) {
         }
         else {drawStartScreen(); return;}
     }
-    
     if (gameOver) {
         if (IsKeyPressed(KEY_ENTER)) {
             gameOver=false;
             initGameScreen();
         }
-        else {
-            drawEndScreen(); return;
-        }
+        else {drawEndScreen(); return;}
     }
     updateGame();
     drawGameScreen();
@@ -430,7 +432,6 @@ void despawnSquare(int x, int y) {
     // CHOOSE A RANDOM SPRITE PACK
     chooseRandomSprite(x,y);
 }
-
 
 void RESET_ALL() {
     for (int i=0; i<SQUARESY; i++) {
