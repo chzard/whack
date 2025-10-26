@@ -22,20 +22,23 @@ using namespace std;
 
 //CONSTANTS
 const int SCREEN_WIDTH = 800;
-const int SCREEN_HEIGHT = 700;
+const int SCREEN_HEIGHT = 720;
 
-const int GRID_WIDTH = 600;
-const int GRID_HEIGHT = 300;
+// const int GRID_WIDTH = 600;
+// const int GRID_HEIGHT = 300;
 const int PLANE_LINE_SPACE = 10;
 const int SQUARE_SIZE = 100;
 
-const int GRID_MARGIN_LEFT = 100;
-const int GRID_MARGIN_RIGHT = 100;
-const int GRID_MARGIN_TOP = 100;
-const int GRID_MARGIN_BOTTOM = 300;
+const int GRID_MARGIN_LEFT = 50;
+const int GRID_MARGIN_RIGHT = 50;
+const int GRID_MARGIN_TOP = 50;
+const int GRID_MARGIN_BOTTOM = 210;
 
-const int SQUARESX = GRID_WIDTH / SQUARE_SIZE;      // Num of squares per row
-const int SQUARESY = GRID_HEIGHT / SQUARE_SIZE;     // Num of squares per column
+const int CELL_PADDING = 20;
+// const int SQUARESX = GRID_WIDTH / SQUARE_SIZE;      // Num of squares per row
+// const int SQUARESY = GRID_HEIGHT / SQUARE_SIZE;     // Num of squares per column
+const int SQUARESX = 6;      // Num of squares per row
+const int SQUARESY = 4;     // Num of squares per column
 
 const int LIT_LIMIT = 5;                            // Max amount of lit squares at any time
 const int STANDBY_LIMIT = 6;                        // Max amount of 'standby' squares at any time
@@ -69,6 +72,7 @@ int framesStandbyNum = 0;
 int squaresSpawnCooldown = 0;
 
 Vector2 mousePos = {0,0};
+Vector2 clickedSquare = {0,0};
 
 //FUNCTIONS
 
@@ -90,6 +94,9 @@ void chooseRandomSprite(int x, int y);
 void spawnSquare(int act);
 void despawnSquare(int x, int y);
 void RESET_ALL(void);
+
+bool anySquaresClicked(void);
+Vector2 getClickedSquare();
 
 struct fishSprite {
     Texture2D alive;
@@ -187,6 +194,8 @@ int main(void) {
     UnloadTexture(SPECIALFISH1.dirty);
     UnloadTexture(SPECIALFISH1.missing);
 
+    UnloadTexture(LIFE);
+
     // De-Initialization
     //--------------------------------------------------------------------------------------
     CloseWindow();        // Close window and OpenGL context
@@ -220,13 +229,10 @@ void updateGame(void) {
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         // If mouse is in the grid region
-        if (mousePos.x >= GRID_MARGIN_LEFT && 
-            mousePos.x <= SCREEN_WIDTH-GRID_MARGIN_RIGHT && 
-            mousePos.y >= GRID_MARGIN_TOP && 
-            mousePos.y <= SCREEN_HEIGHT-GRID_MARGIN_BOTTOM) {
+        if (anySquaresClicked()) {
             
-            int sqX = (mousePos.x - GRID_MARGIN_LEFT) / SQUARE_SIZE;   
-            int sqY = (mousePos.y - GRID_MARGIN_TOP) / SQUARE_SIZE;
+            int sqX = clickedSquare.x-1;   
+            int sqY = clickedSquare.y-1;
 
             if (squares[sqY][sqX].action == LIT) {
                 framesLitNum--;
@@ -323,9 +329,9 @@ void drawStartScreen(void) {
 
 void updateFrame(void) {
     mousePos = GetMousePosition();
+    clickedSquare = getClickedSquare();
     drawCursorShadow();
     if (!gameStart) {
-
         if (IsKeyPressed(KEY_ENTER)) {
             gameStart=true;
         }
@@ -356,12 +362,14 @@ void drawPlane(void) {
 
 void drawGrid(void) {
     // HORIZONTAL
-    for (int i=GRID_MARGIN_TOP; i<=SCREEN_HEIGHT-GRID_MARGIN_BOTTOM; i += SQUARE_SIZE) {
-        DrawLineEx((Vector2){GRID_MARGIN_LEFT, i}, (Vector2){SCREEN_WIDTH-GRID_MARGIN_RIGHT, i}, 2.5, GRID_LINES_COLOR);
+    for (int i=GRID_MARGIN_TOP; i<=SCREEN_HEIGHT-GRID_MARGIN_BOTTOM; i += CELL_PADDING+SQUARE_SIZE) {
+        DrawLineEx((Vector2){GRID_MARGIN_LEFT, i}, (Vector2){SCREEN_WIDTH-GRID_MARGIN_RIGHT, i}, 2.5, RED);
+        DrawLineEx((Vector2){GRID_MARGIN_LEFT, i+SQUARE_SIZE}, (Vector2){SCREEN_WIDTH-GRID_MARGIN_RIGHT, i+SQUARE_SIZE}, 2.5, RED);
     }
     //VERTICAL
-    for (int i=GRID_MARGIN_LEFT; i<=SCREEN_WIDTH-GRID_MARGIN_RIGHT; i += SQUARE_SIZE) {
-        DrawLineEx((Vector2){i, GRID_MARGIN_TOP}, (Vector2){i, SCREEN_HEIGHT-GRID_MARGIN_BOTTOM}, 2.5, GRID_LINES_COLOR);
+    for (int i=GRID_MARGIN_LEFT; i<=SCREEN_WIDTH-GRID_MARGIN_RIGHT; i += SQUARE_SIZE+CELL_PADDING) {
+        DrawLineEx((Vector2){i, GRID_MARGIN_TOP}, (Vector2){i, SCREEN_HEIGHT-GRID_MARGIN_BOTTOM}, 2.5, RED);
+        DrawLineEx((Vector2){i+SQUARE_SIZE, GRID_MARGIN_TOP}, (Vector2){i+SQUARE_SIZE, SCREEN_HEIGHT-GRID_MARGIN_BOTTOM}, 2.5, RED);
     }
 }
 
@@ -373,11 +381,15 @@ void drawLives(void) {
     }
 }
 
+void drawrect(int x, int y, Color color) {
+    DrawRectangle(GRID_MARGIN_LEFT + (x * (SQUARE_SIZE+CELL_PADDING)), GRID_MARGIN_TOP + (y*(SQUARE_SIZE+CELL_PADDING)), SQUARE_SIZE, SQUARE_SIZE, color);
+}
+
 void drawSquares(void) {
     for (int i=0; i<SQUARESY; i++) {
         for (int j=0; j<SQUARESX; j++) {
             if      (squares[i][j].action == LIT)       {drawSprite(j,i, squares[i][j].fishType.dirty);}
-            else if (squares[i][j].action == STANDBY)   {drawSprite(j,i, squares[i][j].fishType.alive);}
+            else if (squares[i][j].action == STANDBY)   {drawSprite(j,i, squares[i][j].fishType.alive); }
             else if (squares[i][j].action == INC_CLICK) {drawSprite(j,i, squares[i][j].fishType.missing);}
             else if (squares[i][j].action == SB_CLICK)  {drawSprite(j,i, squares[i][j].fishType.dead);}
         }
@@ -385,7 +397,7 @@ void drawSquares(void) {
 }
 
 void drawSprite(int x, int y, Texture2D draw) {
-    DrawTexture(draw, GRID_MARGIN_LEFT + (x * SQUARE_SIZE), GRID_MARGIN_TOP + (y*SQUARE_SIZE), WHITE);
+    DrawTexture(draw, GRID_MARGIN_LEFT + (x * (SQUARE_SIZE+CELL_PADDING)), GRID_MARGIN_TOP + (y*(SQUARE_SIZE+CELL_PADDING)), WHITE);
 }
 
 void drawCursorShadow(void) {
@@ -444,4 +456,22 @@ void RESET_ALL() {
     framesStandbyNum=0;
     lives = MAX_LIVES; 
     score = 0;
+}
+
+bool anySquaresClicked() {
+    return (clickedSquare.x && clickedSquare.y);
+}
+
+Vector2 getClickedSquare() {
+    for (int i=0; i<SQUARESY; i++) {
+        for (int j=0; j<SQUARESX; j++) {
+            if (mousePos.x >= (GRID_MARGIN_LEFT + ((SQUARE_SIZE + CELL_PADDING) * j)) && 
+                mousePos.x <= (GRID_MARGIN_LEFT + (SQUARE_SIZE*(j+1)) + (CELL_PADDING*j)) && 
+                mousePos.y >= (GRID_MARGIN_TOP + ((SQUARE_SIZE+CELL_PADDING)*i)) && 
+                mousePos.y <= (GRID_MARGIN_TOP + (SQUARE_SIZE*(i+1)) + (CELL_PADDING * i))
+            )
+            return (Vector2){j+1, i+1};
+        }
+    }
+    return (Vector2){0,0};
 }
