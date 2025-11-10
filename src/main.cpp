@@ -66,6 +66,7 @@ int score = 0;
 
 bool gameStart = true;
 bool gameOver = false;
+bool helpScreen = false;
 
 int framesLitNum = 0;
 int framesStandbyNum = 0;
@@ -86,9 +87,12 @@ void drawLives(void);
 void drawSquares(void);
 void drawSprite(int x, int y, Texture2D draw);
 void drawCursorShadow(void);
+void drawTextCenter(string text, int size, int y, Color color);
+
 void drawGameScreen(void);
 void drawEndScreen(void);
 void drawStartScreen(void);
+void drawHelpScreen(void);
 
 void chooseRandomSprite(int x, int y);
 void spawnSquare(int act);
@@ -110,6 +114,7 @@ struct fishSprite {
 fishSprite FISH1;
 fishSprite FISH2;
 fishSprite SPECIALFISH1;
+fishSprite SPECIALFISH2;
 
 Texture2D LIFE;
 
@@ -153,12 +158,18 @@ int main(void) {
     SPECIALFISH1.dirty = LoadTexture("../assets/sprites/spec/1/dirty.PNG");
     SPECIALFISH1.missing = LoadTexture("../assets/sprites/spec/1/missing.PNG");
 
+    SPECIALFISH2.alive = LoadTexture("../assets/sprites/spec/2/alive.PNG");
+    SPECIALFISH2.dead = LoadTexture("../assets/sprites/spec/2/dead.PNG");
+    SPECIALFISH2.dirty = LoadTexture("../assets/sprites/spec/2/dirty.PNG");
+    SPECIALFISH2.missing = LoadTexture("../assets/sprites/spec/2/missing.PNG");
+
     LIFE = LoadTexture("../assets/sprites/game/life.png");
 
     // INITIALIZE POINT VALUES
     FISH1.points = 1;
     FISH2.points = 1;
     SPECIALFISH1.points = 5;
+    SPECIALFISH2.points = 5;
 
     initGameScreen();
     gameStart = false;
@@ -194,6 +205,11 @@ int main(void) {
     UnloadTexture(SPECIALFISH1.dirty);
     UnloadTexture(SPECIALFISH1.missing);
 
+    UnloadTexture(SPECIALFISH2.alive);
+    UnloadTexture(SPECIALFISH2.dead);
+    UnloadTexture(SPECIALFISH2.dirty);
+    UnloadTexture(SPECIALFISH2.missing);
+
     UnloadTexture(LIFE);
 
     // De-Initialization
@@ -228,7 +244,7 @@ void updateGame(void) {
     if (squaresSpawnCooldown) {squaresSpawnCooldown--;}
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        // If mouse is in the grid region
+
         if (anySquaresClicked()) {
             
             int sqX = clickedSquare.x-1;   
@@ -310,30 +326,57 @@ void drawGameScreen(void) {
     drawSquares();
     drawLives();
     // SCORE
-    DrawText(TextFormat("Score: %d", score), (SCREEN_WIDTH/2) - 20,SCREEN_HEIGHT - (2 * GRID_MARGIN_BOTTOM/3), 20, BLACK);
+    drawTextCenter(TextFormat("Score: %d", score), 20, SCREEN_HEIGHT - (2 * GRID_MARGIN_BOTTOM/3), BLACK);
     //drawGrid();
     //drawCursorShadow();
 }
 
 void drawEndScreen(void) {
     drawGameScreen();
-    DrawText("GAME OVER", 165, SCREEN_HEIGHT/2 - 75/2, 75, BLACK);
-    DrawText("press enter to play again", 220, SCREEN_HEIGHT/2 + 50 - 10, 20, BLACK);
+
+    drawTextCenter("GAME OVER", 100, SCREEN_HEIGHT/2 - 100, BLACK);
+    drawTextCenter("PRESS ENTER TO PLAY AGAIN", 30, SCREEN_HEIGHT/2, BLACK);
 }
 
 void drawStartScreen(void) {
-    drawPlane();
-    DrawText("whac-a-what?", 150, SCREEN_HEIGHT/2 - 75/2, 75, BLACK);
-    DrawText("press enter to play", 220, SCREEN_HEIGHT/2 + 50 - 10, 20, BLACK);
+    //drawPlane();
+
+    drawTextCenter("what-a-what?", 75, SCREEN_HEIGHT/2 - 70, BLACK);
+    drawTextCenter("PRESS ENTER TO PLAY", 25, SCREEN_HEIGHT/2 + 40, BLACK);
+    drawTextCenter("PRESS H FOR HELP", 25, SCREEN_HEIGHT/2 + 75, BLACK);
+}
+
+void drawHelpScreen(void) {
+    drawTextCenter("HOW TO PLAY", 50, 50, BLACK);
+    drawTextCenter("PRESS FISH WITH BUGS ON THEM", 25, 125, BLACK);
+    drawTextCenter("you get 10 lives. pressing a normal fish will grant you 1 point,", 20, 200, BLACK);
+    drawTextCenter("while pressing special fish (with yellow glow!) will grant you 5 points.", 20, 230, BLACK);
+    drawTextCenter("pinching a clean fish or grabbing no fish will cost you a life.", 20, 260, BLACK);
+    drawTextCenter("press r while playing to restart the game. ", 20, 290, BLACK);
+    
+    drawTextCenter("PRESS R TO RETURN TO START SCREEN", 15, SCREEN_HEIGHT-30, BLACK);
 }
 
 void updateFrame(void) {
     mousePos = GetMousePosition();
     clickedSquare = getClickedSquare();
     drawCursorShadow();
+    if (helpScreen) {
+        if (IsKeyPressed(KEY_R)) {
+            helpScreen=false;
+            drawStartScreen();
+        }
+        else {
+            drawHelpScreen(); 
+        }
+        return;
+    }
     if (!gameStart) {
         if (IsKeyPressed(KEY_ENTER)) {
             gameStart=true;
+        }
+        else if (IsKeyPressed(KEY_H)) {
+            drawHelpScreen(); helpScreen = true; return;
         }
         else {drawStartScreen(); return;}
     }
@@ -343,6 +386,9 @@ void updateFrame(void) {
             initGameScreen();
         }
         else {drawEndScreen(); return;}
+    }
+    if (IsKeyPressed(KEY_R)) {
+        initGameScreen();
     }
     updateGame();
     drawGameScreen();
@@ -375,9 +421,7 @@ void drawGrid(void) {
 
 void drawLives(void) {
     for (int i=0; i<lives; i++) {
-        //DrawCircle(GRID_MARGIN_LEFT + (GRID_WIDTH / (2 * lives)) + (i * GRID_WIDTH / lives), SCREEN_HEIGHT-(GRID_MARGIN_BOTTOM/3), 10, LIVES_COLOR);
-        //DrawCircle(GRID_MARGIN_LEFT + (GRID_WIDTH / (2 * lives)) + (i * GRID_WIDTH / lives), SCREEN_HEIGHT-(GRID_MARGIN_BOTTOM/3), 10, LIVES_COLOR);
-        DrawTexture(LIFE, GRID_MARGIN_LEFT + 50 + (i * 52), SCREEN_HEIGHT-(GRID_MARGIN_BOTTOM/3), WHITE);
+        DrawTexture(LIFE, GRID_MARGIN_LEFT + 55 + (i * 62), SCREEN_HEIGHT-(GRID_MARGIN_BOTTOM/3), WHITE);
     }
 }
 
@@ -402,6 +446,16 @@ void drawSprite(int x, int y, Texture2D draw) {
 
 void drawCursorShadow(void) {
     DrawCircle(mousePos.x, mousePos.y, (SQUARE_SIZE/4)+10, CURSOR_SHADOW);
+}
+
+void drawTextCenter(string text, int size, int y, Color color) {
+    DrawText(
+        text.c_str(),
+        (SCREEN_WIDTH - MeasureText(text.c_str(), size)) / 2, 
+        y, 
+        size,
+        color
+    );
 }
 
 // ---------------------------------
