@@ -1,4 +1,4 @@
-# WHAC-A-WHAT?
+# whack // dirty gloves
 -------------
-A remake of the classic Whac-A-Mole built with the raylib library & C++.
-All assets (images, music) created by yours truly :)
+this branch is my attempt to compile everything into webassembly.
+as of 11/15: everything other than audio works. i am going to cry
