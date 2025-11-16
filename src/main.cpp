@@ -7,6 +7,9 @@
 #include <algorithm>
 #include <vector>
 #include <iostream>
+#if defined(PLATFORM_WEB)
+    #include <emscripten/emscripten.h>
+#endif
 using namespace std;
 
 //DEFINES
@@ -21,6 +24,7 @@ using namespace std;
 
 #define GAME_START 0
 #define HELP_SCREEN 1
+#define GO_TO_GAME 2
 
 //GLOBAL VARIABLES
 
@@ -41,7 +45,7 @@ const int MAX_LIVES = 10;
 const int DEFAULT_LIT_LIMIT = 5;                            // Max amount of lit squares at any time
 const int DEFAULT_STANDBY_LIMIT = 6;                        // Max amount of 'standby' squares at any time
 const int DEFAULT_SPAWN_MAX = 3;                            // Max amount of LIT squares that can spawn after cooldown
-const int DEFAULT_SB_SPAWN_MAX = 4;                         // Max amoutn of 'standby' squares that can spawn at once
+const int DEFAULT_SB_SPAWN_MAX = 4;                         // Max amount of 'standby' squares that can spawn at once
 const int DEFAULT_DESPAWN_MAX = 4;                          // Max amount of 'standby' squares that can despawn at once
 
 const double DEFAULT_LIT_TIME = 150;                           // Frames = 150 = 2.5 seconds 
@@ -70,9 +74,10 @@ int score = 0;
 int scinc = 0;
 int scmod = 0;
 
-bool gameStart = true;
+bool gameStart = false;
 bool gameOver = false;
 bool helpScreen = false;
+bool goToStart = false;
 
 int framesLitNum = 0;
 int framesStandbyNum = 0;
@@ -95,6 +100,7 @@ void drawSprite(int x, int y, Texture2D draw);
 void drawCursorShadow(void);
 void drawTextCenter(string text, int size, int y, Color color);
 
+void updateGameFrame(void);
 void drawGameScreen(void);
 void drawEndScreen(void);
 void drawStartScreen(void);
@@ -147,11 +153,10 @@ int main(void) {
 
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "dirty gloves");
 
-    SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
     // INITIALIZE MUSIC
-    InitAudioDevice();
+    //InitAudioDevice();
 
     TEST_BGM = LoadMusicStream("../assets/bgm/Test_song.mp3");
     TEST_BGM_2 = LoadMusicStream("../assets/bgm/Test_BGM_2.mp3");
@@ -159,11 +164,11 @@ int main(void) {
     COLLECT = LoadSound("../assets/bgm/collect.wav");
     EMPTY = LoadSound("../assets/bgm/empty.wav");
     EXPLODE = LoadSound("../assets/bgm/explode.wav");
-
-    TEST_BGM.looping = true;
+    
     TEST_BGM_2.looping = true;
-    PlayMusicStream(TEST_BGM);
 
+    //TEST_BGM.looping = true;
+    
     //  LOAD TEXTURES
     FISH1.alive = LoadTexture("../assets/sprites/fish/1/alive.PNG");
     FISH1.dead = LoadTexture("../assets/sprites/fish/1/dead.PNG");
@@ -196,23 +201,18 @@ int main(void) {
     //initGameScreen();
     gameStart = false;
 
-    // Main game loop
-    while (!WindowShouldClose())    // Detect window close button or ESC key
-    {
+    #if defined(PLATFORM_WEB)
+        emscripten_set_main_loop(updateGameFrame, 60, 1);
+    #else
+        SetTargetFPS(60);       // Set our game to run at 60 frames-per-second
+        //--------------------------------------------------------------------------------------
 
-        mousePos = GetMousePosition();
-        clickedSquare = getClickedSquare();
-
-        playSound();
-
-        BeginDrawing();
-
-            ClearBackground(RAYWHITE);
-            updateFrame();
-
-        EndDrawing();
-        //----------------------------------------------------------------------------------
-    }
+        // Main game loop
+        while (!WindowShouldClose())    // Detect window close button or ESC key
+        {
+            updateGameFrame();
+        }
+    #endif
 
     UnloadMusicStream(TEST_BGM);
     UnloadMusicStream(TEST_BGM_2);
@@ -252,6 +252,22 @@ int main(void) {
     //--------------------------------------------------------------------------------------
 
     return 0;
+}
+
+void updateGameFrame(void) {
+
+    mousePos = GetMousePosition();
+    clickedSquare = getClickedSquare();
+
+    playSound();
+
+    BeginDrawing();
+
+        ClearBackground(RAYWHITE);
+        updateFrame();
+
+    EndDrawing();
+
 }
 
 void initGameScreen(void) {
@@ -364,8 +380,14 @@ void updateGame(void) {
         scmod++;
     }
     if (scmod > 0) {
-        if (!(scmod % 4)) {LIT_LIMIT++; SPAWN_MAX++;}
-        if (scmod == 6) {STANDBY_LIMIT++; SB_SPAWN_MAX++; DESPAWN_MAX++;}
+        if (!(scmod % 4)) {
+            LIT_LIMIT = min(LIT_LIMIT+1, 8); 
+            SPAWN_MAX = min(SPAWN_MAX+1, 7);
+        }
+        if (scmod == 6) {
+            SB_SPAWN_MAX = min(SB_SPAWN_MAX+1, 7); 
+            DESPAWN_MAX = min(DESPAWN_MAX+1, 6);
+        }
         if (scmod == 8) {scmod = 0;}
     }
 }
@@ -391,7 +413,7 @@ void drawStartScreen(void) {
     //drawPlane();
 
     drawTextCenter("what-a-what?", 75, SCREEN_HEIGHT/2 - 70, BLACK);
-    drawTextCenter("PRESS ENTER TO PLAY", 25, SCREEN_HEIGHT/2 + 40, BLACK);
+    drawTextCenter("DOUBLE CLICK TO PLAY", 25, SCREEN_HEIGHT/2 + 40, BLACK);
     drawTextCenter("PRESS H FOR HELP", 25, SCREEN_HEIGHT/2 + 75, BLACK);
 }
 
@@ -419,8 +441,20 @@ void updateFrame(void) {
         }
         return;
     }
+    if (!goToStart) {
+        drawStartScreen();
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetGestureDetected()==GESTURE_TAP) {
+            goToStart=true;
+            InitAudioDevice();
+            initGameScreen();
+        }
+        else if (IsKeyPressed(KEY_H)) {
+            drawHelpScreen(); helpScreen = true; return;
+        }
+        else {return;}
+    }
     if (!gameStart) {
-        if (IsKeyPressed(KEY_ENTER)) {
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) || GetGestureDetected()==GESTURE_TAP) {
             gameStart=true;
             initGameScreen();
             PlayMusicStream(TEST_BGM_2);
@@ -449,23 +483,23 @@ void updateFrame(void) {
 
 void drawPlane(void) {
     for (int i=0; i<SCREEN_WIDTH; i+=PLANE_LINE_SPACE) {
-        DrawLineEx((Vector2){i, 0}, (Vector2){i,SCREEN_HEIGHT}, 1,  PLANE_LINES_COLOR);
+        DrawLineEx((Vector2){static_cast<float>(i), (double)0}, (Vector2){static_cast<float>(i),SCREEN_HEIGHT}, 1,  PLANE_LINES_COLOR);
     }
     for (int i=0; i<SCREEN_HEIGHT; i+=PLANE_LINE_SPACE) {
-        DrawLineEx((Vector2){0,i}, (Vector2){SCREEN_WIDTH,i}, 1, PLANE_LINES_COLOR);
+        DrawLineEx((Vector2){0,static_cast<float>(i)}, (Vector2){SCREEN_WIDTH,static_cast<float>(i)}, 1, PLANE_LINES_COLOR);
     }
 }
 
 void drawGrid(void) {
     // HORIZONTAL
     for (int i=GRID_MARGIN_TOP; i<=SCREEN_HEIGHT-GRID_MARGIN_BOTTOM; i += CELL_PADDING+SQUARE_SIZE) {
-        DrawLineEx((Vector2){GRID_MARGIN_LEFT, i}, (Vector2){SCREEN_WIDTH-GRID_MARGIN_RIGHT, i}, 2.5, RED);
-        DrawLineEx((Vector2){GRID_MARGIN_LEFT, i+SQUARE_SIZE}, (Vector2){SCREEN_WIDTH-GRID_MARGIN_RIGHT, i+SQUARE_SIZE}, 2.5, RED);
+        DrawLineEx((Vector2){GRID_MARGIN_LEFT, static_cast<float>(i)}, (Vector2){SCREEN_WIDTH-GRID_MARGIN_RIGHT, static_cast<float>(i)}, 2.5, RED);
+        DrawLineEx((Vector2){GRID_MARGIN_LEFT, static_cast<float>(i)+SQUARE_SIZE}, (Vector2){SCREEN_WIDTH-GRID_MARGIN_RIGHT, static_cast<float>(i)+SQUARE_SIZE}, 2.5, RED);
     }
     //VERTICAL
     for (int i=GRID_MARGIN_LEFT; i<=SCREEN_WIDTH-GRID_MARGIN_RIGHT; i += SQUARE_SIZE+CELL_PADDING) {
-        DrawLineEx((Vector2){i, GRID_MARGIN_TOP}, (Vector2){i, SCREEN_HEIGHT-GRID_MARGIN_BOTTOM}, 2.5, RED);
-        DrawLineEx((Vector2){i+SQUARE_SIZE, GRID_MARGIN_TOP}, (Vector2){i+SQUARE_SIZE, SCREEN_HEIGHT-GRID_MARGIN_BOTTOM}, 2.5, RED);
+        DrawLineEx((Vector2){static_cast<float>(i), GRID_MARGIN_TOP}, (Vector2){static_cast<float>(i), SCREEN_HEIGHT-GRID_MARGIN_BOTTOM}, 2.5, RED);
+        DrawLineEx((Vector2){static_cast<float>(i)+SQUARE_SIZE, GRID_MARGIN_TOP}, (Vector2){static_cast<float>(i)+SQUARE_SIZE, SCREEN_HEIGHT-GRID_MARGIN_BOTTOM}, 2.5, RED);
     }
 }
 
@@ -485,7 +519,7 @@ void drawSquares(void) {
 
             // draw a circle to mark position!
 
-            DrawCircle(GRID_MARGIN_LEFT +(j*(SQUARE_SIZE+CELL_PADDING)) +(SQUARE_SIZE/2), GRID_MARGIN_TOP +(i*(SQUARE_SIZE+CELL_PADDING)) +(SQUARE_SIZE/2), SQUARE_SIZE/2, BLACK);
+            DrawCircle(GRID_MARGIN_LEFT +(j*(SQUARE_SIZE+CELL_PADDING)) +(SQUARE_SIZE/2), GRID_MARGIN_TOP +(i*(SQUARE_SIZE+CELL_PADDING)) +(SQUARE_SIZE/2), SQUARE_SIZE/2, GRAY);
 
             if      (squares[i][j].action == LIT)       {drawSprite(j,i, squares[i][j].fishType.dirty);}
             else if (squares[i][j].action == STANDBY)   {drawSprite(j,i, squares[i][j].fishType.alive); }
@@ -532,7 +566,7 @@ void chooseRandomSprite(int x, int y) {
 
 void playSound() {
     if (!gameStart) {
-        UpdateMusicStream(TEST_BGM);
+        UpdateMusicStream(TEST_BGM_2);
         return;
     }
     if (gameOver) {
@@ -626,7 +660,7 @@ Vector2 getClickedSquare() {
                 mousePos.y >= (GRID_MARGIN_TOP + ((SQUARE_SIZE+CELL_PADDING)*i)) && 
                 mousePos.y <= (GRID_MARGIN_TOP + (SQUARE_SIZE*(i+1)) + (CELL_PADDING * i))
             ) 
-            return (Vector2){j+1, i+1};
+            return (Vector2){static_cast<float>(j+1), static_cast<float>(i+1)};
         }
     }
     return (Vector2){0,0};
