@@ -6,6 +6,7 @@
 #include <string>
 #include <algorithm>
 #include <vector>
+#include <iostream>
 using namespace std;
 
 //DEFINES
@@ -18,38 +19,43 @@ using namespace std;
 #define COOL 4
 #define SB_CLICK 5
 
+#define GAME_START 0
+#define HELP_SCREEN 1
+
 //GLOBAL VARIABLES
 
 //CONSTANTS
 const int SCREEN_WIDTH = 800;
 const int SCREEN_HEIGHT = 720;
-
-// const int GRID_WIDTH = 600;
-// const int GRID_HEIGHT = 300;
 const int PLANE_LINE_SPACE = 10;
 const int SQUARE_SIZE = 100;
-
 const int GRID_MARGIN_LEFT = 50;
 const int GRID_MARGIN_RIGHT = 50;
 const int GRID_MARGIN_TOP = 50;
 const int GRID_MARGIN_BOTTOM = 210;
-
 const int CELL_PADDING = 20;
-// const int SQUARESX = GRID_WIDTH / SQUARE_SIZE;      // Num of squares per row
-// const int SQUARESY = GRID_HEIGHT / SQUARE_SIZE;     // Num of squares per column
 const int SQUARESX = 6;      // Num of squares per row
 const int SQUARESY = 4;     // Num of squares per column
-
-const int LIT_LIMIT = 5;                            // Max amount of lit squares at any time
-const int STANDBY_LIMIT = 6;                        // Max amount of 'standby' squares at any time
-const int SPAWN_MAX = 3;                            // Max amount of LIT squares that can spawn after cooldown
-const int SB_SPAWN_MAX = 4;                         // Max amoutn of 'standby' squares that can spawn at once
-const int DESPAWN_MAX = 4;                          // Max amount of 'standby' squares that can despawn at once
-const int LIT_TIME = 150;                           // Frames = 150 = 2.5 seconds 
-const int COOLDOWN = 180;                           // Frames = 180 = 3 seconds
-const int SPAWN_COOLDOWN = 30;                      // Frames = 30 = 0.5 seconds
-
 const int MAX_LIVES = 10;
+
+const int DEFAULT_LIT_LIMIT = 5;                            // Max amount of lit squares at any time
+const int DEFAULT_STANDBY_LIMIT = 6;                        // Max amount of 'standby' squares at any time
+const int DEFAULT_SPAWN_MAX = 3;                            // Max amount of LIT squares that can spawn after cooldown
+const int DEFAULT_SB_SPAWN_MAX = 4;                         // Max amoutn of 'standby' squares that can spawn at once
+const int DEFAULT_DESPAWN_MAX = 4;                          // Max amount of 'standby' squares that can despawn at once
+
+const double DEFAULT_LIT_TIME = 150;                           // Frames = 150 = 2.5 seconds 
+const double DEFAULT_COOLDOWN = 180;                           // Frames = 180 = 3 seconds
+const double DEFAULT_SPAWN_COOLDOWN = 30;                      // Frames = 30 = 0.5 seconds
+
+double LIT_TIME = 150;                           // Frames = 150 = 2.5 seconds 
+double COOLDOWN = 180;                           // Frames = 180 = 3 seconds
+double SPAWN_COOLDOWN = 30;                      // Frames = 30 = 0.5 seconds
+int LIT_LIMIT = 5;                            // Max amount of lit squares at any time
+int STANDBY_LIMIT = 6;                        // Max amount of 'standby' squares at any time
+int SPAWN_MAX = 3;                            // Max amount of LIT squares that can spawn after cooldown
+int SB_SPAWN_MAX = 4;                         // Max amoutn of 'standby' squares that can spawn at once
+int DESPAWN_MAX = 4;                          // Max amount of 'standby' squares that can despawn at once
 
 const Color PLANE_LINES_COLOR = ColorFromHSV(220, 0.1, 0.6);
 const Color GRID_LINES_COLOR = ColorFromHSV(260, 0.58, 0.25);
@@ -59,10 +65,10 @@ const Color SQUARE_COLOR = ColorFromHSV(125, 0.7, 0.7);
 const Color SQUARE_WR_COLOR = ColorFromHSV(5, 0.7, 0.85);
 const Color SQUARE_SB_COLOR = ColorFromHSV(45, 0.78, 0.85);
 
-//GLOBAL
-
 int lives = MAX_LIVES;
 int score = 0;
+int scinc = 0;
+int scmod = 0;
 
 bool gameStart = true;
 bool gameOver = false;
@@ -95,6 +101,7 @@ void drawStartScreen(void);
 void drawHelpScreen(void);
 
 void chooseRandomSprite(int x, int y);
+void playSound(void);
 void spawnSquare(int act);
 void despawnSquare(int x, int y);
 void RESET_ALL(void);
@@ -115,6 +122,13 @@ fishSprite FISH1;
 fishSprite FISH2;
 fishSprite SPECIALFISH1;
 fishSprite SPECIALFISH2;
+
+Music TEST_BGM;
+Music TEST_BGM_2;
+Sound BLOOD_SPLASH;
+Sound COLLECT;
+Sound EMPTY;
+Sound EXPLODE;
 
 Texture2D LIFE;
 
@@ -138,8 +152,16 @@ int main(void) {
 
     // INITIALIZE MUSIC
     InitAudioDevice();
-    Music TEST_BGM = LoadMusicStream("../assets/bgm/Test_song.mp3");
+
+    TEST_BGM = LoadMusicStream("../assets/bgm/Test_song.mp3");
+    TEST_BGM_2 = LoadMusicStream("../assets/bgm/Test_BGM_2.mp3");
+    BLOOD_SPLASH = LoadSound("../assets/bgm/blood_splash.wav");
+    COLLECT = LoadSound("../assets/bgm/collect.wav");
+    EMPTY = LoadSound("../assets/bgm/empty.wav");
+    EXPLODE = LoadSound("../assets/bgm/explode.wav");
+
     TEST_BGM.looping = true;
+    TEST_BGM_2.looping = true;
     PlayMusicStream(TEST_BGM);
 
     //  LOAD TEXTURES
@@ -171,15 +193,20 @@ int main(void) {
     SPECIALFISH1.points = 5;
     SPECIALFISH2.points = 5;
 
-    initGameScreen();
+    //initGameScreen();
     gameStart = false;
 
     // Main game loop
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
-        if (gameStart && !gameOver) {UpdateMusicStream(TEST_BGM);}
+
+        mousePos = GetMousePosition();
+        clickedSquare = getClickedSquare();
+
+        playSound();
 
         BeginDrawing();
+
             ClearBackground(RAYWHITE);
             updateFrame();
 
@@ -188,6 +215,13 @@ int main(void) {
     }
 
     UnloadMusicStream(TEST_BGM);
+    UnloadMusicStream(TEST_BGM_2);
+
+    UnloadSound(BLOOD_SPLASH);
+    UnloadSound(COLLECT);
+    UnloadSound(EMPTY);
+    UnloadSound(EXPLODE);
+
     CloseAudioDevice();
 
     UnloadTexture(FISH1.alive);
@@ -253,6 +287,7 @@ void updateGame(void) {
             if (squares[sqY][sqX].action == LIT) {
                 framesLitNum--;
                 score += squares[sqY][sqX].fishType.points;
+                scinc += squares[sqY][sqX].fishType.points;
                 despawnSquare(sqX, sqY);
             }
             else {
@@ -279,7 +314,7 @@ void updateGame(void) {
                 continue;
             }
             if (squares[i][j].action == COOL) {
-                if (squares[i][j].actionTime == 0) {
+                if (squares[i][j].actionTime <= 0) {
                     squares[i][j].action = NO_ACTION;
                 }
                 else {squares[i][j].actionTime--;}
@@ -298,7 +333,7 @@ void updateGame(void) {
                 }
                 else if (squares[i][j].action == STANDBY) {
                     int gen = GetRandomValue(0, framesStandbyNum*10);
-                    if (framesStandbyNum > 2 && gen > (framesStandbyNum*5)) {
+                    if (framesStandbyNum > 3 && gen > (framesStandbyNum*7)) {
                         framesStandbyNum--;
                         despawnSquare(j,i);
                     }
@@ -310,19 +345,33 @@ void updateGame(void) {
 
     if (!squaresSpawnCooldown) {
         if (framesLitNum<LIT_LIMIT) {
-            int TIMES = GetRandomValue(1, min(SPAWN_MAX, LIT_LIMIT - framesLitNum));
+            int TIMES = GetRandomValue(1, min(SPAWN_MAX, LIT_LIMIT - framesLitNum))-1;
             for (int i=0; i<TIMES; i++) {spawnSquare(LIT);}
         }
         if (framesStandbyNum<STANDBY_LIMIT) {
-            int TIMES = GetRandomValue(1, min(SB_SPAWN_MAX, STANDBY_LIMIT - framesStandbyNum));
+            int TIMES = GetRandomValue(1, min(SB_SPAWN_MAX, STANDBY_LIMIT - framesStandbyNum))-1 ;
             for (int i=0; i<TIMES; i++) {spawnSquare(STANDBY);}
         }
         squaresSpawnCooldown = SPAWN_COOLDOWN;
     }
+    
+    // Scale time limit values according to score
+    if (scinc >= 30) {
+        LIT_TIME = max(LIT_TIME * 0.95, 60.0);
+        SPAWN_COOLDOWN = max(SPAWN_COOLDOWN * 0.95, 15.0);
+        COOLDOWN = max(COOLDOWN * 0.95, 90.0);
+        scinc = 0;
+        scmod++;
+    }
+    if (scmod > 0) {
+        if (!(scmod % 4)) {LIT_LIMIT++; SPAWN_MAX++;}
+        if (scmod == 6) {STANDBY_LIMIT++; SB_SPAWN_MAX++; DESPAWN_MAX++;}
+        if (scmod == 8) {scmod = 0;}
+    }
 }
 
 void drawGameScreen(void) {
-    //drawPlane();
+    
     drawSquares();
     drawLives();
     // SCORE
@@ -358,8 +407,7 @@ void drawHelpScreen(void) {
 }
 
 void updateFrame(void) {
-    mousePos = GetMousePosition();
-    clickedSquare = getClickedSquare();
+
     drawCursorShadow();
     if (helpScreen) {
         if (IsKeyPressed(KEY_R)) {
@@ -374,6 +422,8 @@ void updateFrame(void) {
     if (!gameStart) {
         if (IsKeyPressed(KEY_ENTER)) {
             gameStart=true;
+            initGameScreen();
+            PlayMusicStream(TEST_BGM_2);
         }
         else if (IsKeyPressed(KEY_H)) {
             drawHelpScreen(); helpScreen = true; return;
@@ -432,6 +482,11 @@ void drawrect(int x, int y, Color color) {
 void drawSquares(void) {
     for (int i=0; i<SQUARESY; i++) {
         for (int j=0; j<SQUARESX; j++) {
+
+            // draw a circle to mark position!
+
+            DrawCircle(GRID_MARGIN_LEFT +(j*(SQUARE_SIZE+CELL_PADDING)) +(SQUARE_SIZE/2), GRID_MARGIN_TOP +(i*(SQUARE_SIZE+CELL_PADDING)) +(SQUARE_SIZE/2), SQUARE_SIZE/2, BLACK);
+
             if      (squares[i][j].action == LIT)       {drawSprite(j,i, squares[i][j].fishType.dirty);}
             else if (squares[i][j].action == STANDBY)   {drawSprite(j,i, squares[i][j].fishType.alive); }
             else if (squares[i][j].action == INC_CLICK) {drawSprite(j,i, squares[i][j].fishType.missing);}
@@ -462,16 +517,48 @@ void drawTextCenter(string text, int size, int y, Color color) {
 // UPDATE HELPERS
 
 void chooseRandomSprite(int x, int y) {
+    fishSprite normalfish[2] = {FISH1, FISH2};
+    fishSprite specialfish[2] = {SPECIALFISH1, SPECIALFISH2};
     int gen = GetRandomValue(0, 100);
-    if (gen < 40) {
-        squares[y][x].fishType = FISH1;
-    }
-    else if (gen < 80) {
-        squares[y][x].fishType = FISH2;
+    if (gen < 80) {
+        gen = GetRandomValue(0, 100);
+        squares[y][x].fishType = normalfish[gen/50];
     }
     else {
-        squares[y][x].fishType = SPECIALFISH1;
+        gen = GetRandomValue(0, 100);
+        squares[y][x].fishType = specialfish[gen/50];
     }
+}
+
+void playSound() {
+    if (!gameStart) {
+        UpdateMusicStream(TEST_BGM);
+        return;
+    }
+    if (gameOver) {
+        PlaySound(EXPLODE);
+        // return;
+    }
+    else if (anySquaresClicked()) {
+        int act = squares[(int)clickedSquare.y-1][(int)clickedSquare.x-1].action;
+        switch(act){
+            case STANDBY:
+                PlaySound(BLOOD_SPLASH);
+                break;
+            case LIT:
+                PlaySound(COLLECT);
+                break;
+            case NO_ACTION:
+                PlaySound(EMPTY);
+                break;
+            case COOL:
+                PlaySound(EMPTY);
+                break;
+            default:
+                break;
+        }
+    }
+    UpdateMusicStream(TEST_BGM_2);
 }
 
 void spawnSquare(int act) {
@@ -510,6 +597,18 @@ void RESET_ALL() {
     framesStandbyNum=0;
     lives = MAX_LIVES; 
     score = 0;
+
+    // RESTORE DEFAULTS
+    LIT_TIME = DEFAULT_LIT_TIME;                         
+    COOLDOWN = DEFAULT_COOLDOWN;                           
+    SPAWN_COOLDOWN = DEFAULT_SPAWN_COOLDOWN;                 
+    LIT_LIMIT = DEFAULT_LIT_LIMIT;                         
+    STANDBY_LIMIT = DEFAULT_STANDBY_LIMIT;                   
+    SPAWN_MAX = DEFAULT_SPAWN_MAX;                         
+    SB_SPAWN_MAX = DEFAULT_SB_SPAWN_MAX;                       
+    DESPAWN_MAX = DEFAULT_DESPAWN_MAX;               
+    scinc = 0;
+    scmod = 0;
 }
 
 bool anySquaresClicked() {
@@ -517,13 +616,16 @@ bool anySquaresClicked() {
 }
 
 Vector2 getClickedSquare() {
+    if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        return (Vector2){0,0};
+    }
     for (int i=0; i<SQUARESY; i++) {
         for (int j=0; j<SQUARESX; j++) {
             if (mousePos.x >= (GRID_MARGIN_LEFT + ((SQUARE_SIZE + CELL_PADDING) * j)) && 
                 mousePos.x <= (GRID_MARGIN_LEFT + (SQUARE_SIZE*(j+1)) + (CELL_PADDING*j)) && 
                 mousePos.y >= (GRID_MARGIN_TOP + ((SQUARE_SIZE+CELL_PADDING)*i)) && 
                 mousePos.y <= (GRID_MARGIN_TOP + (SQUARE_SIZE*(i+1)) + (CELL_PADDING * i))
-            )
+            ) 
             return (Vector2){j+1, i+1};
         }
     }
