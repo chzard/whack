@@ -1,4 +1,9 @@
-# WHAC-A-WHAT?
+# whack // dirty gloves
 -------------
-A remake of the classic Whac-A-Mole built with the raylib library & C++.
-All assets (images, music) created by yours truly :)
+
+whack-a-mole, but with fish and bugs.
+(the creepy-crawlies, not the ones from your laptop that keep you up at night, though that's assuming you don't have entomophobia.)
+
+---
+full readme formatting coming soon
+hopefully, by then everything will be finalized
